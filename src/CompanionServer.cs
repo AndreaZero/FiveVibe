@@ -12,7 +12,7 @@ using System.Web.Script.Serialization;
 
 namespace FiveVibe
 {
-    public sealed class CompanionCommand { public string Text; public bool Stop; }
+    public sealed class CompanionCommand { public string Text,City; public bool Stop,Location; public double Latitude,Longitude; }
 
     // Loopback only. Worker threads never call GTA; commands are consumed by the script Tick.
     public sealed class CompanionServer : IDisposable
@@ -119,7 +119,7 @@ namespace FiveVibe
                 if (!headers.TryGetValue("Authorization",out value) || value != "Bearer " + token)
                 { Reply(stream,401,"{}",false); return; }
                 if (first[0] == "GET" && first[1] == "/api/state") { Reply(stream,200,snapshot,false); return; }
-                if (first[0] != "POST" || (first[1] != "/api/message" && first[1] != "/api/stop"))
+                if (first[0] != "POST" || (first[1] != "/api/message" && first[1] != "/api/stop" && first[1]!="/api/location"))
                 { Reply(stream,404,"{}",false); return; }
                 if (first[1] == "/api/stop")
                 {
@@ -134,6 +134,21 @@ namespace FiveVibe
                 Dictionary<string,object> message;
                 try { message = new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(Encoding.UTF8.GetString(body)); }
                 catch (Exception) { Reply(stream,400,"{}",false); return; }
+                if(first[1]=="/api/location")
+                {
+                    var command=new CompanionCommand {Location=true}; object city,lat,lon;
+                    if(message!=null && message.TryGetValue("city",out city) && city is string && ValidCity((string)city) && !message.ContainsKey("latitude") && !message.ContainsKey("longitude"))
+                        command.City=((string)city).Trim();
+                    else if(message!=null && !message.ContainsKey("city") && message.TryGetValue("latitude",out lat) && message.TryGetValue("longitude",out lon) && IsNumber(lat) && IsNumber(lon))
+                    {
+                        command.Latitude=Convert.ToDouble(lat); command.Longitude=Convert.ToDouble(lon);
+                        if(Double.IsNaN(command.Latitude) || Double.IsInfinity(command.Latitude) || Math.Abs(command.Latitude)>90 || Double.IsNaN(command.Longitude) || Double.IsInfinity(command.Longitude) || Math.Abs(command.Longitude)>180)
+                        { Reply(stream,400,"{}",false); return; }
+                    }
+                    else { Reply(stream,400,"{}",false); return; }
+                    lock(commands) { if(commands.Count>=8) { Reply(stream,429,"{}",false); return; } commands.Enqueue(command); }
+                    Reply(stream,202,"{\"queued\":true}",false); return;
+                }
                 object text;
                 if (message == null || !message.TryGetValue("text",out text) || !(text is string) || string.IsNullOrWhiteSpace((string)text) || ((string)text).Length > 500)
                 { Reply(stream,400,"{}",false); return; }
@@ -155,6 +170,9 @@ namespace FiveVibe
             byte[] header = Encoding.ASCII.GetBytes(head);
             stream.Write(header,0,header.Length); stream.Write(bytes,0,bytes.Length);
         }
+        private static bool IsNumber(object value) { return value is int || value is long || value is double || value is decimal; }
+        private static bool ValidCity(string city)
+        { if(city.Trim().Length<2 || city.Length>100) return false; foreach(char value in city) if(Char.IsControl(value)) return false; return true; }
         public void Dispose()
         {
             disposed = true; listener.Stop();

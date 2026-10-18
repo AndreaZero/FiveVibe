@@ -54,6 +54,15 @@ internal static class CompanionTests
                 Check(server.TryTake(out command) && command.Stop && !server.TryTake(out command),"Stop discards previously queued actions");
                 Check(Request(client,"/api/unknown",token).StatusCode==HttpStatusCode.NotFound,"Unknown endpoint rejected");
                 Check(Request(client,"/api/message",null,"{\"text\":\"drive\"}").StatusCode==HttpStatusCode.Unauthorized,"Unauthenticated actions rejected");
+                Check(Request(client,"/api/location",null,"{\"city\":\"Rome, Italy\"}").StatusCode==HttpStatusCode.Unauthorized,"Location requires authentication");
+                Check(Request(client,"/api/location",token,"{\"latitude\":95,\"longitude\":10}").StatusCode==HttpStatusCode.BadRequest,"Impossible latitude rejected");
+                Check(Request(client,"/api/location",token,"{\"city\":\"Rome\\nItaly\"}").StatusCode==HttpStatusCode.BadRequest,"Control characters in city rejected before reaching game thread");
+                Check(Request(client,"/api/location",token,"{\"latitude\":true,\"longitude\":10}").StatusCode==HttpStatusCode.BadRequest,"Boolean is not a location coordinate");
+                Check(Request(client,"/api/location",token,"{\"city\":\"Rome\",\"latitude\":42,\"longitude\":12}").StatusCode==HttpStatusCode.BadRequest,"Ambiguous location payload rejected");
+                Check(Request(client,"/api/location",token,"{\"latitude\":41.9,\"longitude\":12.49}").StatusCode==HttpStatusCode.Accepted,"Browser coordinates accepted");
+                Check(server.TryTake(out command) && command.Location && command.City==null && Math.Abs(command.Latitude-41.9)<.001,"Game receives location without a chat message");
+                Check(Request(client,"/api/location",token,"{\"city\":\"Rome, Italy\"}").StatusCode==HttpStatusCode.Accepted,"City query accepted");
+                Check(server.TryTake(out command) && command.Location && command.City=="Rome, Italy","City delivered only to local game queue");
             }
             Console.WriteLine(passed+" companion checks passed."); return 0;
         }

@@ -28,6 +28,7 @@ namespace FiveVibe
         public string HudToggleKeyName="F9";
         public string CameraMode="Gameplay", CameraState="Gameplay", CameraKeyName="F10";
         public bool CameraLetterbox=true;
+        public bool AutoCinemaDriving=true,RealClock,RealWeather;
         public bool ShowDrivingHud = true, InterfaceSounds = true;
         public int CurrentSpeedKmh, HudColorId = 143;
         public readonly List<ChatMessage> Messages = new List<ChatMessage>();
@@ -315,8 +316,13 @@ namespace FiveVibe
                         QueueWorld(CommandPlan.World("none",hours[i]),"Set time to "+times[i]);
                 if(Button(ClockFrozen?"Resume clock":"Freeze clock",left,y+.419f,width,.034f,mx,my,click))
                     QueueWorld(CommandPlan.World("none",-1,0,ClockFrozen?"resume":"pause"),ClockFrozen?"Resume clock":"Freeze clock");
-                Text("Free roam only. For a custom time, type",left,y+.468f,.225f,Muted);
-                Text("Set time to 18:45 in the chat.",left,y+.492f,.225f,Muted);
+                Text("REAL WORLD  /  FREE ROAM",left,y+.468f,.225f,Muted);
+                float realCell=(width-gap*2)/3;
+                string[] realLabels={RealClock?"PC time: ON":"PC time",RealWeather?"Weather: ON":"Real weather","Sync OFF"};
+                string[] realActions={RealClock?"realtime_clock_off":"realtime_clock",RealWeather?"realtime_weather_off":"realtime_weather","realtime_off"};
+                for(int i=0;i<3;i++) if(Button(realLabels[i],left+i*(realCell+gap),y+.497f,realCell,.032f,mx,my,click))
+                    pendingUiPlan=CommandPlan.Create(realActions[i],"current",45,"none",realLabels[i]);
+                Text("Set your city / use location in the companion.",left,y+.543f,.215f,Muted);
             }
             else if(menuTab==5)
             {
@@ -333,6 +339,8 @@ namespace FiveVibe
                     pendingUiPlan=CommandPlan.Create("camera_bars","current",45,"none","Toggle cinema letterbox");
                 Text(CameraKeyName+": change view. Shift+"+CameraKeyName+": next shot.",left,y+.468f,.225f,Muted);
                 Text("F8 restores gameplay. Director watches AI actions.",left,y+.493f,.225f,Muted);
+                if(Button(AutoCinemaDriving?"Auto cinema while AI drives: ON":"Auto cinema while AI drives: OFF",left,y+.539f,width,.032f,mx,my,click,AutoCinemaDriving))
+                    pendingUiPlan=CommandPlan.Create(AutoCinemaDriving?"camera_auto_off":"camera_auto_on","current",45,"none","Toggle automatic driving cinema");
             }
             else
             {

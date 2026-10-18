@@ -61,6 +61,11 @@ namespace FiveVibe
             P("cypress_flats", "Cypress Flats", 916,-2118,30, "cypress flats"),
             P("port", "Port of Los Santos", 1204,-3115,5, "port of los santos|porto|docks|port"),
             P("simeon_dealership", "Simeon's Dealership", -44,-1097,26, "simeon dealership|concessionario|premium deluxe motorsport"),
+            P("ls_customs", "Los Santos Customs (nearest)", -363,-132,38, "ls customs|ls custom|los santos customs|los santos custom|lsc|officina tuning"),
+            P("customs_hawick", "Los Santos Customs Hawick", -363,-132,38, "ls customs hawick|los santos customs hawick|ls customs burton|los santos customs burton"),
+            P("customs_la_mesa", "Los Santos Customs La Mesa", 716,-1089,22, "ls customs la mesa|los santos customs la mesa"),
+            P("customs_airport", "Los Santos Customs Airport", -1140,-1985,13, "ls customs airport|los santos customs airport|ls customs aeroporto"),
+            P("customs_route68", "Los Santos Customs Route 68", 1175,2650,38, "ls customs route 68|los santos customs route 68|ls customs harmony"),
             P("mission_row", "Mission Row Police Station", 425,-980,30, "mission row|police station|stazione di polizia"),
             P("pillbox_hill", "Pillbox Hill Hospital", 298,-584,43, "pillbox hill|pillbox|hospital|ospedale"),
             P("tataviam", "Tataviam Mountains", 2550,480,108, "tataviam|tataviam mountains"),
@@ -72,6 +77,17 @@ namespace FiveVibe
         public static string[] Ids { get { return new[] { "none" }.Concat(places.Select(p => p.Id)).ToArray(); } }
         public static PlaceDefinition[] All { get { return places.ToArray(); } }
         public static PlaceDefinition Get(string id) { return places.FirstOrDefault(p => p.Id == id); }
+        public static bool IsCustoms(string id) { return id=="ls_customs" || (id??"").StartsWith("customs_",StringComparison.Ordinal); }
+        public static CommandPlan ConstrainDestination(string request,CommandPlan plan)
+        {
+            var local=LocalPlanner.Parse(request,plan.SpeedKmh);
+            if((local.Action=="place" || local.Action=="walk_place") && IsCustoms(local.Place))
+            {
+                if(local.Action=="place" && local.VehicleType=="any" && new[] {"vehicle","cruise","place","waypoint","mission"}.Contains(plan.Action)) local.VehicleType=plan.VehicleType;
+                local.Message=plan.Message; local.Validate(); return local;
+            }
+            return plan;
+        }
         public static void LoadCustom(string file)
         {
             var next = new List<PlaceDefinition>(BuiltIns);

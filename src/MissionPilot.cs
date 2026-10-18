@@ -43,6 +43,7 @@ namespace FiveVibe
         }
         public bool Active { get { return flow.Active; } }
         public bool Joined { get { return flow.Joined; } }
+        public bool Driving { get { return Active && observation.IsDriver && flow.Step!=MissionStep.Armed && flow.Step!=MissionStep.Observe && flow.Step!=MissionStep.AwaitResult; } }
         public bool BlocksMovement { get { return Active && observation.CanAct && flow.Step != MissionStep.Armed && flow.Step != MissionStep.AwaitResult; } }
         public string Status { get { return MissionFlow.Label(flow.Step); } }
         public string Objective { get { return MissionFlow.Label(flow.Goal); } }

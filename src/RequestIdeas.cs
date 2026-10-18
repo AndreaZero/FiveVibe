@@ -9,6 +9,9 @@ namespace FiveVibe
     {
         public static readonly RequestIdea[] All={
             new RequestIdea("Chill drive","Find an empty car and take a chill drive"),
+            new RequestIdea("Find a motorcycle","Get a motorcycle"),
+            new RequestIdea("Cruise in an SUV","Find an SUV and take a chill drive"),
+            new RequestIdea("Visit the tuning shop","Drive to LS Customs"),
             new RequestIdea("A trip to the countryside","Drive to Paleto Bay without rushing"),
             new RequestIdea("Follow the map","Drive to the waypoint"),
             new RequestIdea("A little walk","Take a stroll around here"),
@@ -26,6 +29,8 @@ namespace FiveVibe
             new RequestIdea("Sunny skies","Set the weather to sunny"),
             new RequestIdea("Keep this moment","Freeze the clock"),
             new RequestIdea("Let time pass","Resume the clock"),
+            new RequestIdea("Match my PC clock","Enable real time"),
+            new RequestIdea("Use my configured real weather","Enable real weather"),
             new RequestIdea("A clean screen","Hide the task HUD"),
             new RequestIdea("Show my task","Show the task HUD"),
             new RequestIdea("Watch it like a movie","Enable cinema camera"),

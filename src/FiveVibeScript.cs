@@ -35,6 +35,7 @@ namespace FiveVibe
         private CommandPlan drivingPlan;
         private string phase = "idle";
         private int phaseStarted;
+        private int entryTimeout=22000;
         private int lastMoveTime;
         private Vector3 lastPosition;
         private Vector3 destination;
@@ -52,6 +53,10 @@ namespace FiveVibe
         private readonly MissionPilot missionPilot;
         private readonly SpectatorCamera spectatorCamera;
         private readonly Keys cameraKey;
+        private readonly RealWorldService realWorld;
+        private bool realClockApplied, realWeatherApplied;
+        private string appliedRealWeather="";
+        private long lastClockSecond=-1;
 
         public FiveVibeScript()
         {
@@ -74,7 +79,8 @@ namespace FiveVibe
             hudKey=settings.GetValue("HUD","ToggleKey",Keys.F9);
             if(hudKey==openKey || hudKey==takeoverKey) hudKey=Keys.F10;
             chat.HudToggleKeyName=hudKey.ToString();
-            spectatorCamera=new SpectatorCamera(message=>chat.Add(false,message),settings.GetValue("Camera","Letterbox",true));
+            spectatorCamera=new SpectatorCamera(message=>chat.Add(false,message),settings.GetValue("Camera","Letterbox",true),settings.GetValue("Camera","AutoCinemaDriving",true));
+            realWorld=new RealWorldService(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"FiveVibe","real-world.json"),message=>chat.Add(false,message));
             cameraKey=settings.GetValue("Camera","CycleKey",Keys.F10);
             if(cameraKey==openKey || cameraKey==takeoverKey || cameraKey==hudKey || cameraKey==Keys.F4 || cameraKey==Keys.F6)
                 cameraKey=new[] {Keys.F10,Keys.F11,Keys.F12,Keys.F5}.First(k=>k!=openKey && k!=takeoverKey && k!=hudKey);
@@ -94,7 +100,7 @@ namespace FiveVibe
             chat.Add(false, "FiveVibe ready. " + openKey + " opens chat. Write a request or choose a suggestion. " + takeoverKey + " gives you control immediately.");
             Tick += OnTick;
             KeyDown += OnKey;
-            Aborted += delegate { CancelPlanning(); spectatorCamera.Dispose(); missionPilot.Cancel(false); worldActions.Cancel(); ReleaseControl(); ResetWorldOverrides(); chat.Dispose(); if (planner != null) planner.Dispose(); if (companion != null) companion.Dispose(); };
+            Aborted += delegate { CancelPlanning(); realWorld.Dispose(); spectatorCamera.Dispose(); missionPilot.Cancel(false); worldActions.Cancel(); ReleaseControl(); ResetWorldOverrides(); chat.Dispose(); if (planner != null) planner.Dispose(); if (companion != null) companion.Dispose(); };
             Interval = 0;
         }
 
@@ -106,7 +112,7 @@ namespace FiveVibe
                 if (e.KeyCode == hudKey) { SetTaskHud(!chat.ShowDrivingHud); return; }
                 if (Game.IsPaused || Function.Call<bool>(Hash.IS_CUTSCENE_ACTIVE)) return;
                 if(e.KeyCode==cameraKey) { spectatorCamera.Execute(e.Shift?"camera_next":"camera_cycle"); return; }
-                if(e.KeyCode==Keys.V && !chat.IsOpen) spectatorCamera.Reset();
+                if(e.KeyCode==Keys.V && !chat.IsOpen) spectatorCamera.ReleaseForManualView();
                 if (e.KeyCode == Keys.F4 || e.KeyCode == Keys.F6) { chat.IsOpen = false; return; }
                 if (e.KeyCode == openKey) { chat.IsOpen = !chat.IsOpen; return; }
                 if (!chat.IsOpen) return;
@@ -118,11 +124,14 @@ namespace FiveVibe
 
         private void Submit(string prompt)
         {
+            string city;
+            if(RealWorldCommands.TryCity(prompt,out city))
+            { chat.Add(true,"Set real-world weather location"); realWorld.SetCity(city); realWorld.SetWeather(true); return; }
             chat.Add(true, prompt);
             if (LocalPlanner.IsImmediateStop(prompt)) { BrakeOrRelease(); return; }
             if (Function.Call<bool>(Hash.NETWORK_IS_SESSION_ACTIVE)) { chat.Add(false, "FiveVibe runs in Story Mode."); return; }
             var directPilot = LocalPlanner.Parse(prompt, speedKmh);
-            if(CameraCommands.IsCamera(directPilot.Action)) { Execute(directPilot); return; }
+            if(CameraCommands.IsCamera(directPilot.Action) || directPilot.Action.StartsWith("realtime_",StringComparison.Ordinal)) { Execute(directPilot); return; }
             CancelPlanning();
             if (directPilot.Action == "mission_auto") { Execute(directPilot); return; }
             if (!useOpenAi) { Execute(LocalPlanner.Parse(prompt, speedKmh)); return; }
@@ -148,6 +157,7 @@ namespace FiveVibe
             try
             {
                 UpdateCompanion();
+                UpdateRealWorld();
                 if (Game.IsPaused) { spectatorCamera.Suspend(); return; }
                 missionPilot.Tick();
                 if (missionPilot.Active || missionPilot.Result != "pending")
@@ -206,20 +216,22 @@ namespace FiveVibe
                 worldActions.ApplyInput();
                 missionPilot.ApplyInput();
                 chat.Status = missionPilot.Active ? missionPilot.Status : worldActions.Active ? worldActions.Status : phase == "idle" ? "Ready" : phase == "entering" ? "Approaching car" :
-                    phase == "leaving" ? "Leaving vehicle" : phase == "braking" ? "Stopping" : "Chill drive  /  " + speedKmh + " km/h";
+                    phase == "leaving" ? "Leaving vehicle" : phase=="changing" ? "Changing vehicle" : phase == "braking" ? "Stopping" : "Chill drive  /  " + speedKmh + " km/h";
                 string actor = ActorName(Game.Player.Character);
                 chat.CharacterName = actor == "current character" ? "Player" : CultureInfo.InvariantCulture.TextInfo.ToTitleCase(actor);
                 chat.HudColorId = actor == "franklin" ? 144 : actor == "trevor" ? 145 : 143;
                 chat.Autonomous = phase != "idle" || worldActions.Active || missionPilot.Active;
-                try { spectatorCamera.Tick(chat.Autonomous,chat.IsOpen); }
-                catch(Exception) { spectatorCamera.Reset(); chat.Add(false,"Camera unavailable. Gameplay camera restored; your active action continues."); }
+                try { spectatorCamera.UpdateDriving(phase=="driving" || missionPilot.Driving); spectatorCamera.Tick(chat.Autonomous,chat.IsOpen); }
+                catch(Exception) { spectatorCamera.ReleaseForManualView(); chat.Add(false,"Camera unavailable. Gameplay camera restored; your active action continues."); }
                 chat.CameraMode=spectatorCamera.ModeName;
                 chat.CameraState=spectatorCamera.Status;
                 chat.CameraLetterbox=spectatorCamera.Letterbox;
+                chat.AutoCinemaDriving=spectatorCamera.AutoCinema;
+                chat.RealClock=realWorld.ClockEnabled; chat.RealWeather=realWorld.WeatherEnabled;
                 chat.OnFoot = !Game.Player.Character.IsInVehicle();
                 chat.WorldTime=ClockLabel();
                 chat.WeatherName=World.Weather.ToString();
-                chat.ClockFrozen=GameClock.IsPaused;
+                chat.ClockFrozen=GameClock.IsPaused && !realClockApplied;
                 var displayedCar = missionPilot.Active ? Game.Player.Character.CurrentVehicle : vehicle;
                 chat.CurrentSpeedKmh = displayedCar != null && displayedCar.Exists() ? (int)Math.Round(displayedCar.Speed * 3.6f) : 0;
                 chat.Route = missionPilot.Active ? "Franklin and Lamar / " + missionPilot.Objective : worldActions.Active ? worldActions.GoalLabel : hasDestination && drivingPlan != null ? "To " + destinationLabel : "Free roam";
@@ -238,6 +250,12 @@ namespace FiveVibe
             if (companion.TryTake(out command))
             {
                 if (command.Stop) Stop("You have control.");
+                else if(command.Location)
+                {
+                    if(command.City!=null) realWorld.SetCity(command.City);
+                    else realWorld.SetLocation(new RealLocation {Name="Browser location",Latitude=command.Latitude,Longitude=command.Longitude});
+                    realWorld.SetWeather(true);
+                }
                 else if (Game.IsPaused) chat.Add(false, "The game is paused. Resume GTA and disable Pause Game on Focus Loss to run in the background, then send your request again.");
                 else Submit(command.Text);
             }
@@ -248,9 +266,10 @@ namespace FiveVibe
                 actor=CultureInfo.InvariantCulture.TextInfo.ToTitleCase(ActorName(Game.Player.Character)),
                 status=chat.Status, route=chat.Route, active=phase != "idle" || worldActions.Active || missionPilot.Active,
                 paused=Game.IsPaused, thinking=chat.Thinking, provider=chat.Provider,
-                taskHudVisible=chat.ShowDrivingHud, clockFrozen=GameClock.IsPaused,
+                taskHudVisible=chat.ShowDrivingHud, clockFrozen=GameClock.IsPaused && !realClockApplied,
                 gameTime=ClockLabel(), weather=World.Weather.ToString(),
-                camera=new { mode=spectatorCamera.ModeName, status=spectatorCamera.Status, letterbox=spectatorCamera.Letterbox, cycleKey=cameraKey.ToString() },
+                camera=new { mode=spectatorCamera.ModeName, status=spectatorCamera.Status, letterbox=spectatorCamera.Letterbox, cycleKey=cameraKey.ToString(), autoDriving=spectatorCamera.AutoCinema },
+                realWorld=new { clock=realWorld.ClockEnabled, weather=realWorld.WeatherEnabled, location=realWorld.LocationName, status=realWorld.Status, paused=Function.Call<bool>(Hash.GET_MISSION_FLAG) },
                 missionPilot = new { active=missionPilot.Active, joined=missionPilot.Joined, stage=missionPilot.Status, objective=missionPilot.Objective, label=missionPilot.ObjectiveKey, result=missionPilot.Result },
                 messages=chat.Messages.Select(m => new { user=m.User, text=m.Text }).ToArray(),
                 places=PlaceCatalog.All.Select(p => new { id=p.Id, name=p.Name }).ToArray()
@@ -300,6 +319,15 @@ namespace FiveVibe
             if (plan.Action == "stop") { BrakeOrRelease(); return; }
             if (plan.Action == "say") { chat.Add(false, plan.Message); return; }
             if(CameraCommands.IsCamera(plan.Action)) { spectatorCamera.Execute(plan.Action); return; }
+            if(plan.Action.StartsWith("realtime_",StringComparison.Ordinal))
+            {
+                if(plan.Action=="realtime_status") { chat.Add(false,realWorld.Status+". PC time sync: "+(realWorld.ClockEnabled?"on":"off")+"."); return; }
+                if(plan.Action=="realtime_off") { realWorld.SetClock(false); realWorld.SetWeather(false); }
+                else if(plan.Action=="realtime_clock_off") realWorld.SetClock(false);
+                else if(plan.Action=="realtime_weather_off") realWorld.SetWeather(false);
+                else { if(plan.Action=="realtime_clock" || plan.Action=="realtime_both") realWorld.SetClock(true); if(plan.Action=="realtime_weather" || plan.Action=="realtime_both") realWorld.SetWeather(true); }
+                chat.Add(false,"Real-world sync: PC time "+(realWorld.ClockEnabled?"on":"off")+", weather "+(realWorld.WeatherEnabled?"on":"off")+". "+(realWorld.WeatherEnabled?realWorld.Status+".":"")); return;
+            }
             if(plan.Action.StartsWith("hud_",StringComparison.Ordinal))
             { SetTaskHud(plan.Action=="hud_show" || (plan.Action=="hud_toggle" && !chat.ShowDrivingHud)); return; }
             if(plan.Action=="world_settings") { ApplyWorldSettings(plan); return; }
@@ -373,8 +401,15 @@ namespace FiveVibe
             }
             else if (plan.Action == "place")
             {
+                if(plan.Place=="ls_customs")
+                {
+                    if(!TryCustoms(out target,out destinationLabel)) { chat.Add(false,"No available Los Santos Customs map marker was detected. Choose a specific Customs branch in Places or unlock the shop in the story."); return; }
+                }
+                else
+                {
                 target = PlacePosition(plan.Place);
                 destinationLabel = PlaceLabel(plan.Place);
+                }
                 var roadPoint = World.GetNextPositionOnStreet(target);
                 if (roadPoint != Vector3.Zero && roadPoint.DistanceTo(target) < 150f) target = roadPoint;
             }
@@ -397,24 +432,30 @@ namespace FiveVibe
             if (ped.IsInVehicle())
             {
                 vehicle = ped.CurrentVehicle;
-                if (!IsUsableCar(vehicle) || Function.Call<int>(Hash.GET_PED_IN_VEHICLE_SEAT, vehicle.Handle, -1, false) != ped.Handle)
-                { ReleaseControl(); chat.Add(false, "Sit in the driver's seat of a usable car and try again."); return; }
+                if(IsUsableCar(vehicle) && MatchesVehicle(vehicle,plan.VehicleType,false) && Function.Call<int>(Hash.GET_PED_IN_VEHICLE_SEAT, vehicle.Handle, -1, false)==ped.Handle)
+                {
                 ClaimCar();
+                if(plan.Action=="vehicle") { ReleaseControl(); chat.Add(false,"You are already in a suitable "+VehicleSelection.Label(plan.VehicleType)+"."); return; }
                 StartDriving();
                 return;
+                }
+                if(vehicle.Speed>.8f) { ReleaseControl(); chat.Add(false,"Stop the current vehicle before changing to a "+VehicleSelection.Label(plan.VehicleType)+"."); return; }
             }
             vehicle = World.GetNearbyVehicles(ped.Position, searchRadius)
-                .Where(v => IsUsableCar(v) && v.Speed < .5f && !v.IsPersistent &&
+                .Where(v => IsUsableCar(v) && MatchesVehicle(v,plan.VehicleType,true) && v.Speed < .5f && !v.IsPersistent &&
                     Function.Call<bool>(Hash.IS_VEHICLE_SEAT_FREE, v.Handle, -1, false) &&
                     Function.Call<int>(Hash.GET_VEHICLE_DOOR_LOCK_STATUS, v.Handle) <= 1)
                 .OrderBy(v => v.Position.DistanceTo(ped.Position)).FirstOrDefault();
             if (vehicle == null)
-            { ReleaseControl(); chat.Add(false, "No empty, unlocked car is nearby. Move toward a parking area or get in a car and try again."); return; }
+            { ReleaseControl(); chat.Add(false, "No empty, unlocked "+VehicleSelection.Label(plan.VehicleType)+" is nearby within "+Math.Round(searchRadius)+" metres. Try another area; I will not substitute a different type."); return; }
             ClaimCar();
+            entryTimeout=VehicleSelection.EntryTimeout(vehicle.Position.DistanceTo(ped.Position));
+            if(ped.IsInVehicle())
+            { phase="changing"; phaseStarted=Game.GameTime; Function.Call(Hash.TASK_LEAVE_VEHICLE,ped.Handle,ped.CurrentVehicle.Handle,0); chat.Add(false,"Leaving the current vehicle to reach the selected "+VehicleSelection.Label(plan.VehicleType)+"."); return; }
             phase = "entering";
             phaseStarted = Game.GameTime;
-            Function.Call(Hash.TASK_ENTER_VEHICLE, ped.Handle, vehicle.Handle, 22000, -1, 1f, 1, 0);
-            chat.Add(false, "Found an empty car. Approaching and trying to get in.");
+            Function.Call(Hash.TASK_ENTER_VEHICLE, ped.Handle, vehicle.Handle, entryTimeout, -1, 2f, 1, 0);
+            chat.Add(false, "Found an empty "+VehicleSelection.Label(plan.VehicleType)+". Approaching and trying to get in.");
         }
 
         private void ClaimCar() { wasPersistent = vehicle.IsPersistent; vehicle.IsPersistent = true; claimedCar = true; }
@@ -431,6 +472,13 @@ namespace FiveVibe
             if(Function.Call<bool>(Hash.NETWORK_IS_SESSION_ACTIVE)) { chat.Add(false,"World controls are available in Story Mode."); return; }
             if(Function.Call<bool>(Hash.GET_MISSION_FLAG) || Function.Call<bool>(Hash.IS_CUTSCENE_ACTIVE) || !Game.Player.CanControlCharacter)
             { chat.Add(false,"Weather and time controls are available in free roam after the game returns control."); return; }
+            if(plan.WeatherType!="none") { realWorld.SetWeather(false); realWeatherApplied=false; }
+            if(plan.Hour>=0 || plan.Clock!="unchanged")
+            {
+                realWorld.SetClock(false);
+                if(realClockApplied && plan.Clock=="unchanged") { Function.Call(Hash.PAUSE_CLOCK,false); ownsClockPause=false; }
+                realClockApplied=false;
+            }
             if(plan.WeatherType=="auto")
             {
                 Function.Call(Hash.CLEAR_OVERRIDE_WEATHER);
@@ -454,6 +502,34 @@ namespace FiveVibe
             if(ownsClockPause) Function.Call(Hash.PAUSE_CLOCK,false);
             if(ownsWeather) { Function.Call(Hash.CLEAR_OVERRIDE_WEATHER); Function.Call(Hash.CLEAR_WEATHER_TYPE_PERSIST); }
             ownsClockPause=ownsWeather=false;
+            realClockApplied=realWeatherApplied=false; appliedRealWeather=""; lastClockSecond=-1;
+        }
+        private void UpdateRealWorld()
+        {
+            bool available=!Game.IsPaused && !Function.Call<bool>(Hash.NETWORK_IS_SESSION_ACTIVE) && !Function.Call<bool>(Hash.GET_MISSION_FLAG) &&
+                Game.Player.CanControlCharacter && !Game.Player.Character.IsDead && !Function.Call<bool>(Hash.IS_CUTSCENE_ACTIVE) && !Function.Call<bool>(Hash.IS_PLAYER_SWITCH_IN_PROGRESS);
+            realWorld.Tick(available);
+            if(available && realWorld.ClockEnabled)
+            {
+                long second=DateTime.Now.Ticks/TimeSpan.TicksPerSecond;
+                if(second!=lastClockSecond)
+                {
+                    DateTime now=DateTime.Now;
+                    Function.Call(Hash.PAUSE_CLOCK,true); Function.Call(Hash.SET_CLOCK_TIME,now.Hour,now.Minute,now.Second);
+                    lastClockSecond=second;
+                }
+                realClockApplied=ownsClockPause=true;
+            }
+            else if(realClockApplied) { Function.Call(Hash.PAUSE_CLOCK,false); realClockApplied=ownsClockPause=false; lastClockSecond=-1; }
+            var reading=realWorld.Current;
+            if(available && realWorld.WeatherEnabled && reading!=null)
+            {
+                if(!realWeatherApplied || appliedRealWeather!=reading.Preset)
+                { Function.Call(Hash.SET_WEATHER_TYPE_NOW_PERSIST,WorldControlParser.WeatherCode(reading.Preset)); appliedRealWeather=reading.Preset; }
+                realWeatherApplied=ownsWeather=true;
+            }
+            else if(realWeatherApplied)
+            { Function.Call(Hash.CLEAR_OVERRIDE_WEATHER); Function.Call(Hash.CLEAR_WEATHER_TYPE_PERSIST); realWeatherApplied=ownsWeather=false; appliedRealWeather=""; }
         }
         private static string ClockLabel() { return GameClock.Hour.ToString("00",CultureInfo.InvariantCulture)+":"+GameClock.Minute.ToString("00",CultureInfo.InvariantCulture); }
 
@@ -485,8 +561,15 @@ namespace FiveVibe
             }
             if (phase == "entering")
             {
-                if (Function.Call<int>(Hash.GET_PED_IN_VEHICLE_SEAT, vehicle.Handle, -1, false) == driver.Handle) StartDriving();
-                else if (Game.GameTime - phaseStarted > 24000) Stop("Could not reach the driver's seat. Try another car.");
+                if (Function.Call<int>(Hash.GET_PED_IN_VEHICLE_SEAT, vehicle.Handle, -1, false) == driver.Handle)
+                { if(drivingPlan.Action=="vehicle") { ReleaseControl(); chat.Add(false,"Vehicle ready. Ask for a destination or a chill ride."); } else StartDriving(); }
+                else if (Game.GameTime - phaseStarted > entryTimeout+2000) Stop("Could not reach the driver's seat. Try another vehicle.");
+                return;
+            }
+            if(phase=="changing")
+            {
+                if(!driver.IsInVehicle()) { phase="entering"; phaseStarted=Game.GameTime; Function.Call(Hash.TASK_ENTER_VEHICLE,driver.Handle,vehicle.Handle,entryTimeout,-1,2f,1,0); }
+                else if(Game.GameTime-phaseStarted>12000) Stop("Could not leave the current vehicle. You have control.");
                 return;
             }
             if (!driver.IsInVehicle(vehicle) || Function.Call<int>(Hash.GET_PED_IN_VEHICLE_SEAT, vehicle.Handle, -1, false) != driver.Handle)
@@ -568,7 +651,24 @@ namespace FiveVibe
             catch { phase = "idle"; }
         }
 
-        private static bool IsUsableCar(Vehicle car) { return car != null && car.Exists() && car.Model.IsCar && car.IsDriveable; }
+        private static bool IsUsableCar(Vehicle car) { return car != null && car.Exists() && (car.Model.IsCar || (car.Model.IsBike && !car.Model.IsBicycle)) && car.IsDriveable; }
+        private static bool MatchesVehicle(Vehicle car,string type,bool searching)
+        { return VehicleSelection.Matches(type,(int)car.ClassType,car.Model.IsCar,car.Model.IsBike && !car.Model.IsBicycle,car.DisplayName,searching); }
+        private static bool TryCustoms(out Vector3 position,out string label)
+        {
+            position=Vector3.Zero; label="Los Santos Customs"; float nearest=Single.MaxValue;
+            int blip=Function.Call<int>(Hash.GET_FIRST_BLIP_INFO_ID,72);
+            for(int i=0;i<64 && Function.Call<bool>(Hash.DOES_BLIP_EXIST,blip);i++)
+            {
+                Vector3 point=Function.Call<Vector3>(Hash.GET_BLIP_INFO_ID_COORD,blip);
+                var branch=PlaceCatalog.All.Where(p=>p.Id.StartsWith("customs_",StringComparison.Ordinal)).OrderBy(p=>new Vector3(p.X,p.Y,p.Z).DistanceTo(point)).First();
+                float distance=point.DistanceTo(Game.Player.Character.Position);
+                if(new Vector3(branch.X,branch.Y,branch.Z).DistanceTo(point)<100 && distance<nearest && Function.Call<int>(Hash.GET_BLIP_COLOUR,blip)!=39)
+                { nearest=distance; position=new Vector3(branch.X,branch.Y,branch.Z); label=branch.Name; }
+                blip=Function.Call<int>(Hash.GET_NEXT_BLIP_INFO_ID,72);
+            }
+            return nearest<Single.MaxValue;
+        }
         private static string ActorName(Ped ped)
         {
             int hash = ped.Model.Hash;

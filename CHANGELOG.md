@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.0 — Automatic cinema and real-world vibes
+
+- Enable the cinema director automatically during AI driving, including Mission Pilot, and restore gameplay on drive completion or F8/Stop. Respect manual camera choices for the current drive.
+- Add PC clock synchronization and optional real weather through Open-Meteo. Choose city/country or explicitly grant browser location; keep rounded coordinates and preferences locally.
+- Add real-world controls to the native World tab and companion, independent time/weather switches, mission suspension, manual-setting precedence and cached periodic refreshes.
+- Add Los Santos Customs destinations for Hawick/Burton, La Mesa, the airport and Route 68. Resolve generic requests against available Customs markers and prevent confusion with Simeon's dealership.
+- Search nearby available motorcycles, SUVs, off-road vehicles/jeeps, sports cars, supercars, sedans, muscle cars, vans and pickups. A standalone vehicle request enters it and waits; driving requests preserve the selected type.
+- Allow enough approach time for vehicles farther away in the search radius; report unavailable types without substitution or spawning.
+- Add automatic-camera, location/privacy, weather and vehicle regressions, companion location endpoint checks and optional live AI/weather probes. Native gameplay validation remains pending.
+
 ## 0.8.0 — Spectator cameras
 
 - Add native first-person/cockpit and third-person views, the original GTA cinematic camera and a FiveVibe cinema director.

@@ -66,7 +66,7 @@ internal static class PlannerTests
             Check(LocalPlanner.Parse("Greet the person ahead",45).Action=="greet_npc", "English greeting");
             Check(LocalPlanner.Parse("Complete the entire story",45).Action=="say", "English story limit");
             Check(LocalPlanner.Parse("Go to Michael's house",45).Actor=="current", "A destination name does not switch the protagonist");
-            Check(PlaceCatalog.All.Length==42 && PlaceCatalog.Ids.Distinct().Count()==43, "Unique built-in catalog IDs");
+            Check(PlaceCatalog.All.Length==47 && PlaceCatalog.Ids.Distinct().Count()==48, "Unique built-in catalog IDs");
             var customFile=Path.GetTempFileName();
             try {
                 File.WriteAllText(customFile,"[{\"Id\":\"my_spot\",\"Name\":\"Our quiet spot\",\"Aliases\":[\"il nostro posto\"],\"X\":195,\"Y\":-935,\"Z\":30}]");

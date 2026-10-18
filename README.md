@@ -10,14 +10,16 @@ An open-source AI companion for GTA V Enhanced Story Mode. Give your character a
 
 FiveVibe includes a native in-game chat and a local browser companion. Requests can be written in English or Italian; the interface and assistant replies are in English.
 
-**Status: experimental, v0.8.0.** Free-roam driving has been confirmed by the original user. Spectator cameras add first person, third person, a dynamic cinema director and GTA's own cinematic mode; native camera behavior still needs in-game validation. Mission Pilot implements a first full-flow attempt for **Franklin and Lamar**; no successful autonomous playthrough has yet been observed. Background gameplay depends on GTA continuing to run while unfocused.
+**Status: experimental, v0.9.0.** Free-roam driving has been confirmed by the original user. Automatic driving cinema, vehicle categories and real-world time/weather are implemented and logic-tested; their native behavior still needs in-game validation. Mission Pilot implements a first full-flow attempt for **Franklin and Lamar**; no successful autonomous playthrough has yet been observed. Background gameplay depends on GTA continuing to run while unfocused.
 
 ## What you can do
 
 | Vibe | Example |
 | --- | --- |
 | Take a drive | “Find an empty car and cruise.” |
+| Choose a vehicle | “Get a motorcycle.” / “Find an SUV and take a chill drive.” |
 | Go somewhere | “Drive to Sandy Shores.” / “Take me to the Kortz Center.” |
+| Find a tuning shop | “Drive to LS Customs.” / “Take me to LS Customs La Mesa in a sports car.” |
 | Stretch your legs | “Take a stroll.” / “Run forward 50 metres.” |
 | Use a waypoint | “Walk to the waypoint.” / “Drive to the waypoint.” |
 | Meet the world | “Approach the person ahead and say hello.” / “Follow that person.” |
@@ -26,9 +28,12 @@ FiveVibe includes a native in-game chat and a local browser companion. Requests 
 | Get mission assistance | “What missions are available?” / “Go to Lester's mission marker.” |
 | Try Mission Pilot | “Start Mission Pilot for Franklin and Lamar.” |
 | Watch the ride | “Enable cinema camera.” / “Switch to first person.” |
+| Match real life | “Enable real time and weather.” |
 | Take over | Press **F8**, click **Stop & take over**, or say “stop.” |
 
-42 built-in places cover landmarks, neighbourhoods and countryside: Del Perro Pier, Mirror Park, Vinewood, Rockford Hills, Galileo Observatory, Sandy Shores, Grapeseed, Paleto Bay, Alamo Sea, Route 68, the protagonists' houses and more. The companion lists and searches the full catalog.
+47 built-in destinations cover landmarks, neighbourhoods and countryside: Del Perro Pier, Mirror Park, Vinewood, Rockford Hills, Galileo Observatory, Sandy Shores, Grapeseed, Paleto Bay, Alamo Sea, Route 68, the protagonists' houses and more. The companion lists and searches the full catalog.
+
+“LS Custom”, “LS Customs” and “Los Santos Customs” select the nearest detected available Customs map marker among Hawick/Burton, La Mesa, airport and Route 68. These destinations are separate from Simeon's dealership. You can also choose a specific branch in Places if the shop marker is unavailable. Arrival is outside the workshop; FiveVibe does not operate its modification menus or unlock story access.
 
 Coordinates are approximate outdoor approach points. A destination does not guarantee building entry, access to restricted areas or a mission trigger. Mount Chiliad means the cable-car base; Fort Zancudo and Humane Labs use approach points. Driving uses GTA's road AI.
 
@@ -46,6 +51,12 @@ Copy config/FiveVibe.locations.example.json to your game's scripts/FiveVibe.loca
     ]
 
 Custom places become available to both AI and local commands. Up to 100 custom locations are supported. IDs must be unique; invalid files cannot partially replace the catalog. Unknown locations prompt clarification or a map waypoint, rather than invented coordinates.
+
+### Choose your ride
+
+Ask for a motorcycle, SUV, off-road vehicle/jeep, sports car, supercar, sedan, muscle car, van or pickup. English and Italian work: “Prendi una moto”, “Prendi una jeep e fai un giro”, or “Portami a LS Customs con un SUV”. “Get a motorcycle” finds and enters one, then waits; add a drive or destination to continue driving.
+
+FiveVibe searches nearby parked, unlocked, available vehicles, normally within 100 metres. It uses GTA vehicle classes; “jeep” means the off-road class, rather than a specific branded model. If no matching vehicle is available, it reports that instead of substituting a different type. It does not spawn vehicles or eject NPCs. Stop your current vehicle before requesting a different type. Bikes use the same native driving tasks as cars and need gameplay testing.
 
 ## Install
 
@@ -129,11 +140,27 @@ World provides weather presets, 06:00 / 12:00 / 19:00 / 00:00 and Freeze/Resume 
 
 Weather/time changes leave an active drive or walk running. The story retains control during missions and cutscenes; FiveVibe releases its weather/clock overrides when a mission starts or the script unloads. Automatic weather releases the manual weather override rather than selecting a new preset.
 
+### Real-world time and weather
+
+Open the companion's **Real-world time & weather** section:
+
+1. Enable **PC time on** to use Windows' local hour, minute and second, at real-life speed. This works offline.
+2. Enter **city, country** and click **Use this city**, or click **Use my location** and grant the browser's location permission. Check the resolved city shown in the panel. Choosing a location enables real weather.
+3. Use **Sync off**, or ask “Disable real weather” / “Disable real time” to turn off either part independently. The native World tab also has PC time, real weather and sync-off controls.
+
+Chat examples: “Sincronizza meteo e ora con quelli reali”, “Meteo reale a Milano, Italia”, “Set weather location to Rome, Italy”. City configuration is handled locally before AI planning. Browser location is requested only when you click its button; there is no automatic IP lookup or continuous tracking. If permission is denied, enter a city instead.
+
+The selected location and sync switches are saved per Windows user in `%LOCALAPPDATA%\FiveVibe\real-world.json`. Coordinates are rounded to two decimal places before storage and weather requests. City searches and approximate coordinates go to [Open-Meteo](https://open-meteo.com/), which supplies model-based current conditions. They are not added to the OpenAI game-state context. Open-Meteo's free endpoint needs no API key and is intended for non-commercial use; see its [terms](https://open-meteo.com/en/terms).
+
+Weather refreshes every 15 minutes and maps conditions to GTA presets: clear, clouds, overcast, fog, rain, thunder or snow. This is an approximation, not a recreation of local skies or snow-covered terrain. Failed requests retry after two minutes; readings older than 90 minutes stop being applied. The clock uses the PC's timezone, independently of the weather city. Both overrides yield during missions/cutscenes and resume in free roam. Setting weather or time manually disables the corresponding real-world sync so your explicit choice takes effect.
+
 **F9** shows/hides the on-screen task panel and its closed-chat hints, without stopping autonomy. The HUD tab, browser button and requests such as “Hide the task HUD” do the same. F8 still takes over. This preference is saved per Windows user in %LOCALAPPDATA%\FiveVibe\preferences.json. The INI supports [HUD] ShowTaskHud and ToggleKey as defaults; a saved preference takes precedence for visibility.
 
 ## Watch the ride
 
-Start a drive or another AI action, then choose **F7 > Camera**, use the companion's **Watch the ride** buttons, or write “Metti la camera cinema”, “Switch to first person”, “Use GTA cinematic camera”, or “Restore normal camera”. Camera requests work locally without an API call and preserve the active action.
+The cinema director starts automatically when AI driving begins, including Mission Pilot driving, and restores the previous gameplay view when that drive ends or you take over with **F8 / Stop**. Vehicle searching and entry keep the gameplay camera. Toggle **Auto cinema while AI drives** in **F7 > Camera** or the companion, or say “Disable automatic cinema camera”.
+
+You can choose a view yourself through **F7 > Camera**, the companion's **Watch the ride** buttons, or requests such as “Metti la camera cinema”, “Switch to first person”, “Use GTA cinematic camera”, or “Restore normal camera”. A manual choice takes priority for that drive; the next drive uses automatic cinema again if enabled. Camera requests work locally without an API call and preserve the active action.
 
 - **First person:** native player/cockpit view, on foot or in a vehicle.
 - **Third person:** GTA's medium follow camera.
@@ -152,8 +179,9 @@ Defaults are used even when an existing INI has no Camera section. To customize:
     [Camera]
     CycleKey=F10
     Letterbox=true
+    AutoCinemaDriving=true
 
-If the cycle key conflicts with FiveVibe's chat, takeover, HUD, trainer or console bindings, a free fallback is selected and shown in the Camera menu/companion. View overrides start disabled on each script load.
+If the cycle key conflicts with FiveVibe's chat, takeover, HUD, trainer or console bindings, a free fallback is selected and shown in the Camera menu/companion. Each script load starts with the gameplay view; automatic cinema waits for AI driving. The auto-cinema menu toggle applies to the current session; the INI supplies its startup default.
 
 ## What is still limited
 
@@ -203,6 +231,10 @@ Tests cover local parsing, destination catalogs, custom-file validation, OpenAI 
     .\build\AiConnectionCheck.exe .\.env --places
     .\build\AiConnectionCheck.exe .\.env --mission
     .\build\AiConnectionCheck.exe .\.env --camera
+    .\build\AiConnectionCheck.exe .\.env --ambient
+    .\build\RealWeatherCheck.exe
+
+The last probe queries the public reference city Rome, Italy, independently of player location or saved sync settings. Ambient checks also cover auto-camera ownership, vehicle filters, weather mapping, opt-in requests and stale location results.
 
 Close GTA before updates. The source updater preserves configuration and makes a backup:
 

@@ -16,19 +16,37 @@ namespace FiveVibe
         private float subjectLength=4.5f, clearance=1, probeClearance=1, probeDistance;
         private Vector3 smoothPosition, probeOrigin, previousSubjectPosition, subjectMin, subjectMax;
         private readonly Action<string> say;
+        private readonly AutoCinemaPolicy automatic=new AutoCinemaPolicy();
+        public bool AutoCinema { get { return automatic.Enabled; } }
         public SpectatorView Mode { get; private set; }
         public bool Letterbox { get; private set; }
         public string Status { get; private set; }
         public bool Rendering { get { return camera != null && camera.Exists() && Function.Call<int>(Hash.GET_RENDERING_CAM)==camera.Handle; } }
         public string ModeName { get { return CameraCommands.Label(Mode); } }
 
-        public SpectatorCamera(Action<string> report,bool letterbox)
-        { say=report; Letterbox=letterbox; Status="Gameplay"; }
+        public SpectatorCamera(Action<string> report,bool letterbox,bool autoCinema=true)
+        { say=report; Letterbox=letterbox; automatic.Enabled=autoCinema; Status="Gameplay"; }
+
+        public void UpdateDriving(bool driving)
+        {
+            var change=automatic.Update(driving);
+            if(change==AutoCameraChange.StartCinema) SetMode(SpectatorView.Cinema,false);
+            else if(change==AutoCameraChange.RestoreGameplay) RestoreGameplay();
+        }
 
         public void Execute(string action)
         {
+            if(action=="camera_auto_on" || action=="camera_auto_off")
+            {
+                automatic.Enabled=action=="camera_auto_on";
+                if(AutoCinema) automatic.ManualChoice=false;
+                if(!AutoCinema && automatic.OwnsView) { RestoreGameplay(); automatic.OwnsView=false; }
+                if(AutoCinema && automatic.Driving) { SetMode(SpectatorView.Cinema,false); automatic.OwnsView=true; automatic.ManualChoice=false; }
+                say(AutoCinema?"Automatic driving cinema on.":"Automatic driving cinema off."); return;
+            }
             if(action=="camera_bars" || action=="camera_bars_on" || action=="camera_bars_off")
             { Letterbox=action=="camera_bars_on" || (action=="camera_bars" && !Letterbox); say("Cinema letterbox "+(Letterbox?"on.":"off.")); return; }
+            automatic.ChooseManually();
             if(action=="camera_next")
             {
                 if(Mode!=SpectatorView.Cinema) SetMode(SpectatorView.Cinema);
@@ -41,9 +59,9 @@ namespace FiveVibe
             SetMode(mode);
         }
 
-        private void SetMode(SpectatorView mode)
+        private void SetMode(SpectatorView mode,bool announce=true)
         {
-            if(mode==SpectatorView.Gameplay) { Reset(); say("Gameplay camera restored."); return; }
+            if(mode==SpectatorView.Gameplay) { RestoreGameplay(); if(announce) say("Gameplay camera restored."); return; }
             if(!savedViews)
             {
                 savedPedView=Function.Call<int>(Hash.GET_FOLLOW_PED_CAM_VIEW_MODE);
@@ -52,7 +70,7 @@ namespace FiveVibe
             }
             Suspend(); Mode=mode; subjectHandle=0; lastView=Game.GameTime-1000; retryAt=null;
             clock.Reset(Game.GameTime); cut=true;
-            say(ModeName+" selected. Camera changes keep your active action running.");
+            if(announce) say(ModeName+" selected. Camera changes keep your active action running.");
         }
 
         public void Tick(bool autonomous,bool chatOpen)
@@ -183,6 +201,9 @@ namespace FiveVibe
             Status=ModeName+" / waiting for gameplay";
         }
         public void Reset()
+        { RestoreGameplay(); automatic.Reset(); }
+        public void ReleaseForManualView() { RestoreGameplay(); automatic.ChooseManually(); }
+        private void RestoreGameplay()
         {
             Suspend(); Mode=SpectatorView.Gameplay; Status="Gameplay";
             if(savedViews)

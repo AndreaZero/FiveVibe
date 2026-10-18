@@ -20,13 +20,15 @@ namespace FiveVibe
         public int Hour { get; set; }
         public int Minute { get; set; }
         public string Clock { get; set; }
+        public string VehicleType { get; set; }
 
-        public CommandPlan() { Pace = "walk"; Target = "nearest"; DistanceMeters = 25; WeatherType="none"; Hour=-1; Clock="unchanged"; }
+        public CommandPlan() { Pace = "walk"; Target = "nearest"; DistanceMeters = 25; WeatherType="none"; Hour=-1; Clock="unchanged"; VehicleType="any"; }
 
         public static readonly string[] Actions = { "cruise", "waypoint", "place", "speed", "stop", "leave", "help", "say",
             "walk_wander", "walk_forward", "walk_waypoint", "walk_place", "approach_npc", "greet_npc", "follow_npc",
             "switch_character", "phone_open", "phone_answer", "phone_hangup", "interact", "mission", "mission_status",
-            "world_settings", "hud_show", "hud_hide", "hud_toggle", "mission_auto",
+            "world_settings", "hud_show", "hud_hide", "hud_toggle", "mission_auto", "vehicle",
+            "realtime_clock", "realtime_weather", "realtime_both", "realtime_off", "realtime_clock_off", "realtime_weather_off", "realtime_status", "camera_auto_on", "camera_auto_off",
             "camera_gameplay", "camera_first", "camera_third", "camera_cinema", "camera_native", "camera_cycle", "camera_next", "camera_bars", "camera_bars_on", "camera_bars_off" };
         public static readonly string[] WeatherTypes={"none","auto","clear","sunny","clouds","fog","overcast","rain","thunder","smog","clearing","snow","blizzard","christmas"};
         public static readonly string[] ClockModes={"unchanged","pause","resume"};
@@ -41,6 +43,8 @@ namespace FiveVibe
                 throw new ArgumentException("The plan contains an unsupported action.");
             if (SpeedKmh < 15 || SpeedKmh > 90)
                 throw new ArgumentException("Speed must be between 15 and 90 km/h.");
+            if(!VehicleSelection.Types.Contains(VehicleType) || (VehicleType!="any" && Action!="vehicle" && Action!="cruise" && Action!="place" && Action!="waypoint" && Action!="mission"))
+                throw new ArgumentException("Vehicle selection does not match the action.");
             if ((Action == "place" || Action == "walk_place") != (Place != "none"))
                 throw new ArgumentException("The destination does not match this action.");
             if (!Paces.Contains(Pace) || !Targets.Contains(Target) || DistanceMeters < 5 || DistanceMeters > 100)
@@ -96,12 +100,22 @@ namespace FiveVibe
 
         public static CommandPlan Parse(string input, int currentSpeed)
         {
+            var plan=ParseCore(input,currentSpeed);
+            if(plan.Action=="vehicle" || plan.Action=="cruise" || plan.Action=="place" || plan.Action=="waypoint" || plan.Action=="mission")
+                plan.VehicleType=VehicleSelection.FromText(input);
+            plan.Validate(); return plan;
+        }
+
+        private static CommandPlan ParseCore(string input, int currentSpeed)
+        {
             string text = Normalize(input);
             int speed = Math.Max(15, Math.Min(90, currentSpeed));
             string actor = Has(text, "michael|micheal") ? "michael" : Has(text, "franklin") ? "franklin" : Has(text, "trevor") ? "trevor" : "current";
             if (IsImmediateStop(text)) return CommandPlan.Create("stop", "current", speed);
             CommandPlan cameraPlan;
             if (CameraCommands.TryParse(text,out cameraPlan)) return cameraPlan;
+            CommandPlan realPlan;
+            if(RealWorldCommands.TryPlan(text,out realPlan)) return realPlan;
             CommandPlan worldPlan;
             if (WorldControlParser.TryParse(text,out worldPlan)) return worldPlan;
             if (Has(text, "non|mai|senza|poi|oppure|not|never|then|or") || Has(text, "spara|uccidi|compra|vola|elicottero|aereo|teletrasporta|spawn|insegui|shoot|kill|teleport"))
@@ -163,8 +177,9 @@ namespace FiveVibe
             if (Regex.IsMatch(text, @"\b(?:scendi|esci|uscire|get out|leave|exit)\b.*\b(?:auto|macchina|veicolo|car|vehicle)\b") || text == "scendi")
                 return CommandPlan.Create("leave", actor, speed);
             if (number.Success || Has(text, "rallenta|accelera|slower|faster|slow down|speed up")) return CommandPlan.Create("speed", actor, speed);
-            if (Has(text, "giro|chill|gira|giretto|cruise|drive around") || Regex.IsMatch(text, @"\bprendi (?:una |la )?(?:macchina|auto)\b"))
+            if (Has(text, "giro|chill|gira|giretto|cruise|drive around"))
                 return CommandPlan.Create("cruise", actor, speed);
+            if(Has(text,"prendi|cerca|trova|find|get|take") && VehicleSelection.FromText(text)!="any") return CommandPlan.Create("vehicle",actor,speed);
             return Say("Request not recognized in local mode. Try: find a car and take a chill drive.");
         }
 

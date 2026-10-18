@@ -3,6 +3,20 @@ using System.Text.RegularExpressions;
 
 namespace FiveVibe
 {
+    public enum AutoCameraChange { None, StartCinema, RestoreGameplay }
+    public sealed class AutoCinemaPolicy
+    {
+        public bool Enabled=true, Driving, OwnsView, ManualChoice;
+        public AutoCameraChange Update(bool driving)
+        {
+            AutoCameraChange change=AutoCameraChange.None;
+            if(driving && !Driving && Enabled && !ManualChoice) { OwnsView=true; change=AutoCameraChange.StartCinema; }
+            if(!driving && Driving) { if(OwnsView) change=AutoCameraChange.RestoreGameplay; OwnsView=false; ManualChoice=false; }
+            Driving=driving; return change;
+        }
+        public void ChooseManually() { ManualChoice=true; OwnsView=false; }
+        public void Reset() { Driving=OwnsView=ManualChoice=false; }
+    }
     public enum SpectatorView { Gameplay, FirstPerson, ThirdPerson, Cinema, NativeCinema }
 
     public sealed class CinemaFraming
@@ -69,11 +83,13 @@ namespace FiveVibe
         {
             plan=null; string text=LocalPlanner.Normalize(request);
             if(Regex.IsMatch(text,@"\b(?:non|not|never|don't|dont|without|senza)\b")) return false;
-            bool requestVerb=Regex.IsMatch(text,@"\b(?:set|switch|enable|start|show|use|change|give|put|hide|remove|disable|toggle|restore|return|metti|attiva|avvia|mostra|usa|cambia|passa|voglio|vorrei|torna|ritorna|ripristina|togli|rimuovi|nascondi|alterna)\b");
+            bool requestVerb=Regex.IsMatch(text,@"\b(?:set|switch|enable|start|show|use|change|give|put|hide|remove|disable|toggle|restore|return|metti|attiva|avvia|mostra|usa|cambia|passa|voglio|vorrei|torna|ritorna|ripristina|togli|rimuovi|nascondi|alterna|disattiva|spegni)\b");
             bool cameraWord=Regex.IsMatch(text,@"\b(?:camera|view|visuale|cinema|cinematic|cinematica|cinematiche|inquadratura|ripresa|riprese|persona|person|shot|letterbox|bande nere|black bars|cockpit)\b");
             if(!cameraWord) return false;
             string action=null;
-            if(Regex.IsMatch(text,@"\b(?:next shot|next camera shot|prossima (?:ripresa|inquadratura)|cambia (?:ripresa|inquadratura))\b")) action="camera_next";
+            if(Regex.IsMatch(text,@"\b(?:auto|automatic|automatico|automatica)\b") && Regex.IsMatch(text,@"\b(?:cinema|camera)\b") && requestVerb)
+                action=Regex.IsMatch(text,@"\b(?:disable|off|disattiva|spegni)\b")?"camera_auto_off":"camera_auto_on";
+            else if(Regex.IsMatch(text,@"\b(?:next shot|next camera shot|prossima (?:ripresa|inquadratura)|cambia (?:ripresa|inquadratura))\b")) action="camera_next";
             else if(Regex.IsMatch(text,@"\b(?:letterbox|bande nere|black bars)\b") && requestVerb)
                 action=Regex.IsMatch(text,@"\b(?:hide|remove|disable|off|togli|rimuovi|nascondi)\b")?"camera_bars_off":
                     Regex.IsMatch(text,@"\b(?:toggle|alterna|cambia)\b")?"camera_bars":"camera_bars_on";
