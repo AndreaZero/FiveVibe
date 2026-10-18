@@ -12,9 +12,9 @@ FiveVibe includes a native in-game chat and a local browser companion. Requests 
 
 AI interprets text requests into validated game actions; GTA's native tasks and controls move the character. The mod does not generate images, models, textures, voices or NPC dialogue, and its release contains no AI-generated game assets. Basic local commands work without AI or an API key. The website's concept illustrations are separate from the mod download.
 
-[Website](https://fivevibe.gta-vi.it) · [Download v0.13.0 (experimental pre-release)](https://github.com/AndreaZero/FiveVibe/releases/tag/v0.13.0) · [Project status](docs/status.md) · [Publication guide and description draft](docs/publishing.md)
+[Website](https://fivevibe.gta-vi.it) · [Download v0.13.1 (experimental pre-release)](https://github.com/AndreaZero/FiveVibe/releases/tag/v0.13.1) · [Project status](docs/status.md) · [Publication guide and description draft](docs/publishing.md)
 
-**Status: experimental, v0.13.0.** Free-roam driving has been confirmed by the original user. Timed drives with return, themed drives, favorites, vehicle radio controls, automatic driving cinema, vehicle categories and real-world time/weather are implemented and logic-tested; their native behavior still needs in-game validation. Mission Pilot implements a first full-flow attempt for **Franklin and Lamar**; no successful autonomous playthrough has yet been observed. Background gameplay depends on GTA continuing to run while unfocused.
+**Status: experimental, v0.13.1.** Free-roam driving has been confirmed by the original user. Timed drives with return, themed drives, favorites, vehicle radio controls, automatic driving cinema, vehicle categories and real-world time/weather are implemented and logic-tested; their native behavior still needs in-game validation. Mission Pilot implements a first full-flow attempt for **Franklin and Lamar**; no successful autonomous playthrough has yet been observed. Background gameplay depends on GTA continuing to run while unfocused.
 
 ## What you can do
 
@@ -160,22 +160,24 @@ Set Enabled=false to disable the browser listener or choose a free port. There i
 | --- | --- |
 | F7 | Open / close chat |
 | Enter | Send |
-| Esc | Close chat |
+| Esc | Return to Chat from a submenu; close from Chat |
 | F8 | Cancel pending AI and autonomy; take over |
 | F9 | Show / hide the active task HUD |
 | F10 | Cycle camera: gameplay → first person → third person → cinema director → GTA cinema |
 | Shift+F10 | Next director shot; enables the director if needed |
 | Tab / Shift+Tab | Fill a quick request |
 | Up / Down | Recall requests |
-| Page Up / Page Down / mouse wheel | Scroll conversation |
+| Page Up / Page Down / mouse wheel | Scroll Chat, World or Camera; browse Places/Ideas pages |
 | Ctrl+V | Paste |
 | Insert | SHVDNE reload, with its default binding |
 
-The HUD uses GTA fonts, menu textures, protagonist colours, notification feed and instructional buttons. Native Trainer and the SHVDNE console have their own keys; the source installer assigns a new SHVDNE console configuration to F6 to avoid a common F4 conflict.
+The HUD uses GTA fonts, menu textures, protagonist colours, notification feed and measured keyboard badges. The footer displays full key names instead of fixed-width Scaleform glyphs. Native Trainer and the SHVDNE console have their own keys; the source installer assigns a new SHVDNE console configuration to F6 to avoid a common F4 conflict.
 
 ## Chat menus, world controls and a clean screen
 
 The native chat has six tabs: **Chat, Places, Ideas, World, HUD, Camera**. Click a tab or use Ctrl+Left/Right. Places lists every built-in and custom location, with Drive/Walk selection; Ideas provides ready-to-edit requests. Choosing a place or idea fills the composer: press Enter to send. Page Up/Down or the mouse wheel browses pages. Esc first returns from a submenu to Chat.
+
+World and Camera scroll inside a bounded content area, using the wheel over the menu, Page Up/Down or the on-screen up/down buttons. A scrollbar and “more above/below” hint indicate additional controls. Quick requests, the composer and key hints stay fixed; hidden or partially visible controls cannot receive clicks through them. Changing tabs resets the menu scroll. The footer shows Enter, Tab, Esc and the configured takeover key; Esc is labelled Back in a submenu and Close in Chat.
 
 The composer supports 420 characters. Long input follows the latest three lines; use Shift+Page Up/Down or the wheel over the composer to read earlier lines. Text drawing and width measurement use GTA's multi-component text command with UTF-8-safe components, fixing the former disappearance after roughly 32 characters.
 
@@ -194,6 +196,8 @@ Open the companion's **Real-world time & weather** section:
 1. Enable **PC time on** to use Windows' local hour, minute and second, at real-life speed. This works offline.
 2. Enter **city, country** and click **Use this city**, or click **Use my location** and grant the browser's location permission. Check the resolved city shown in the panel. Choosing a location enables real weather.
 3. Use **Sync off**, or ask “Disable real weather” / “Disable real time” to turn off either part independently. The native World tab also has PC time, real weather and sync-off controls.
+
+In the native **World** tab, scroll down to **Set weather city...**. It fills the existing chat composer with `Set weather location to `; append your city and country (for example `Rome, Italy`) and press Enter. This uses the same local location handler as typing the command directly. Browser geolocation remains in the companion.
 
 Chat examples: “Sincronizza meteo e ora con quelli reali”, “Meteo reale a Milano, Italia”, “Set weather location to Rome, Italy”. City configuration is handled locally before AI planning. Browser location is requested only when you click its button; there is no automatic IP lookup or continuous tracking. If permission is denied, enter a city instead.
 
@@ -280,6 +284,8 @@ In Windows PowerShell:
     .\tests\Test-ChatUpdate.ps1
 
 The build uses Windows' .NET Framework compiler and a hash-verified upstream SHVDNE SDK. No NuGet restore or Node toolchain is required. When Node.js is available, the build also runs dependency-free companion radio interaction tests. Output: dist\FiveVibe.
+
+Overlay checks also compile the actual chat drawing/input code against recording natives, checking all tabs, scroll limits, hidden-button clicks and complete key labels across aspect ratios and safe-zone settings. Optional rendered previews use approximate Windows font metrics; they are not gameplay screenshots.
 
 Tests cover local parsing, destination catalogs, custom-file validation, OpenAI schemas and errors, cancellation, HUD layout, the companion's HTTP interface and update/migration behavior. They do not substitute for in-game testing. Optional live API probes use synthetic state and never command GTA:
 

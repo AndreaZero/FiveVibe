@@ -8,23 +8,69 @@ namespace FiveVibe
     // Screen-height proportions keep the panel compact on ultrawide displays too.
     public sealed class HudLayout
     {
-        public readonly float Aspect, Left, Right, Top, Width, Height, Padding;
+        public readonly float Aspect, Left, Right, Top, Width, Height, Padding, SafeBottom;
         public float HistoryTop { get { return Top + .194f; } }
         public float HistoryBottom { get { return Top + .520f; } }
         public float QuickTop { get { return Top + .546f; } }
         public float InputTop { get { return Top + .596f; } }
+        public float MenuBottom { get { return HistoryBottom - .033f; } }
+        public float MenuScrollTop { get { return HistoryBottom - .022f; } }
+        public float HintsTop { get { return Top + .724f; } }
         public float TextWidth { get { return Width - Padding * 2 - .008f / Aspect; } }
         public HudLayout(float aspect, float safeZone)
         {
             Aspect = Math.Max(1.25f, Math.Min(4f, aspect));
             safeZone = Math.Max(.8f, Math.Min(1f, safeZone));
             float inset = (1f - safeZone) * .5f;
+            SafeBottom = 1f - inset;
             Right = 1f - inset - .015f / Aspect;
             Width = .530f / Aspect;
             Left = Right - Width;
             Top = inset + .027f;
             Height = .758f;
             Padding = .018f / Aspect;
+        }
+    }
+
+    // Only whole controls enter the viewport: invisible controls cannot receive clicks.
+    public sealed class HudMenuViewport
+    {
+        public readonly float Top, Bottom, Offset, MaximumOffset;
+        public HudMenuViewport(float top,float bottom,float contentBottom,float offset)
+        {
+            Top=top;Bottom=bottom;
+            MaximumOffset=Math.Max(0,contentBottom-bottom);
+            Offset=Math.Max(0,Math.Min(offset,MaximumOffset));
+        }
+        public bool Contains(float y,float height)
+        {return y>=Top-.00001f && y+height<=Bottom+.00001f;}
+    }
+
+    public sealed class HudHintRow
+    {
+        public float Scale {get;private set;}
+        public float Width {get;private set;}
+        public float[] Starts {get;private set;}
+        public float[] KeyWidths {get;private set;}
+        public static HudHintRow Fit(string[] keys,string[] labels,float width,float aspect,Func<string,float,float> measure)
+        {
+            if(keys.Length!=labels.Length || keys.Length==0)throw new ArgumentException("Hint keys and labels must match.");
+            var row=new HudHintRow {Scale=.205f,Starts=new float[keys.Length],KeyWidths=new float[keys.Length]};
+            // Measure complete key names rather than using Scaleform's fixed-width t_ glyphs.
+            for(int attempt=0;attempt<40;attempt++)
+            {
+                float x=0;
+                for(int i=0;i<keys.Length;i++)
+                {
+                    row.Starts[i]=x;row.KeyWidths[i]=measure(keys[i],row.Scale)+.010f/aspect;
+                    x+=row.KeyWidths[i]+.005f/aspect+measure(labels[i],row.Scale);
+                    if(i+1<keys.Length)x+=.012f/aspect;
+                }
+                row.Width=x;
+                if(x<=width)break;
+                row.Scale*=.95f;
+            }
+            return row;
         }
     }
 

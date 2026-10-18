@@ -69,6 +69,11 @@ $companionSources = @('src\FavoriteStore.cs','src\CompanionServer.cs','tests\Com
 if ($LASTEXITCODE -ne 0) { throw 'Companion checks failed to compile.' }
 & (Join-Path $buildRoot 'CompanionTests.exe')
 if ($LASTEXITCODE -ne 0) { throw 'Companion checks failed.' }
+$overlaySources = @('src\TimedDrives.cs','src\ThemedTours.cs','src\FavoriteStore.cs','src\RadioControls.cs','src\VehicleSelection.cs','src\RealWorldService.cs','src\CameraDirectorLogic.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','src\HudLayout.cs','src\ChatOverlay.cs','src\RequestIdeas.cs','tests\OverlayTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
+& $compiler @commonArgs '/target:exe' ('/out:' + (Join-Path $buildRoot 'OverlayTests.exe')) @overlaySources
+if ($LASTEXITCODE -ne 0) { throw 'Overlay checks failed to compile.' }
+& (Join-Path $buildRoot 'OverlayTests.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Overlay checks failed.' }
 if (Get-Command node -ErrorAction SilentlyContinue) {
     & node (Join-Path $projectRoot 'tests\CompanionRadioTests.cjs')
     if ($LASTEXITCODE -ne 0) { throw 'Companion radio interaction checks failed.' }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.1 — Native menu layout fixes
+
+- Constrain World and Camera controls to a separate scrollable viewport, with wheel/PgUp/PgDn, on-screen arrows and a scrollbar. Keep quick requests, input and footer fixed; hidden controls cannot intercept their clicks.
+- Make the existing weather-city command accessible from World through a composer shortcut, rather than only pointing at the companion.
+- Replace truncated Scaleform key glyphs with measured full key badges in the footer, including configured takeover/open keys and accurate Esc Back/Close labels. Correct button text padding for the screen aspect ratio.
+- Add tests against the actual overlay drawing/input code with recording natives, covering every tab, multiple aspect ratios/safe zones, scrolling, city submission and click isolation. Previews use approximate fonts; actual gameplay confirmation remains pending.
+
 ## 0.13.0 — Timed drives with return
 
 - Start a 1–120 minute free-roam drive followed by a return near the starting position, through English/Italian chat or the companion duration input and Start button. Canonical commands execute locally in both provider modes; AI plans use a validated duration field.

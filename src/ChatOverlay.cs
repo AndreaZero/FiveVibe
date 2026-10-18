@@ -44,12 +44,15 @@ namespace FiveVibe
         private int inputScroll;
         private float inputWidth = -1;
         private int menuTab, menuPage;
+        private float menuScroll;
+        private HudMenuViewport menuViewport;
+        private float menuTextRight;
+        private HudHintRow hintRow;
+        private string hintState;
         private bool walkToPlace;
         private CommandPlan pendingUiPlan;
         private static readonly string[] MenuTabs={"CHAT","PLACES","IDEAS","WORLD","HUD","CAMERA"};
         public CommandPlan TakeUiPlan() { var result=pendingUiPlan; pendingUiPlan=null; return result; }
-        private Scaleform instructions;
-        private string instructionState;
         private int cachedColor = -1, lastTextureRequest;
         private Color accent = Color.FromArgb(101, 180, 212);
         private static readonly Color White = Color.FromArgb(240, 240, 240);
@@ -79,13 +82,15 @@ namespace FiveVibe
 
         public string Key(KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.Escape) { if(menuTab!=0) { menuTab=menuPage=0; } else IsOpen=false; return null; }
+            if (e.KeyCode == Keys.Escape) { if(menuTab!=0) { menuTab=menuPage=0; menuScroll=0; } else IsOpen=false; return null; }
             if(e.Control && (e.KeyCode==Keys.Left || e.KeyCode==Keys.Right))
-            { menuTab=(menuTab+MenuTabs.Length+(e.KeyCode==Keys.Right?1:-1))%MenuTabs.Length; menuPage=0; return null; }
+            { menuTab=(menuTab+MenuTabs.Length+(e.KeyCode==Keys.Right?1:-1))%MenuTabs.Length; menuPage=0; menuScroll=0; return null; }
             if (e.Shift && e.KeyCode == Keys.PageUp) { inputScroll+=2; return null; }
             if (e.Shift && e.KeyCode == Keys.PageDown) { inputScroll=Math.Max(0,inputScroll-2); return null; }
             if((menuTab==1 || menuTab==2) && (e.KeyCode==Keys.PageUp || e.KeyCode==Keys.PageDown))
             { menuPage=Math.Max(0,menuPage+(e.KeyCode==Keys.PageDown?1:-1)); return null; }
+            if((menuTab==3 || menuTab==5) && (e.KeyCode==Keys.PageUp || e.KeyCode==Keys.PageDown))
+            { menuScroll=Math.Max(0,menuScroll+(e.KeyCode==Keys.PageDown?.22f:-.22f)); return null; }
             if (e.KeyCode == Keys.PageUp) { scroll += 6; return null; }
             if (e.KeyCode == Keys.PageDown) { scroll = Math.Max(0, scroll - 6); return null; }
             if (e.KeyCode == Keys.Tab)
@@ -156,12 +161,12 @@ namespace FiveVibe
         public string Draw(string openKey, string takeoverKey)
         {
             if (disposed) return null;
+            menuViewport=null;
             lock (pasteQueue) { foreach (string text in pasteQueue) if (IsOpen) Append(text); pasteQueue.Clear(); }
             if (wasOpen != IsOpen)
             {
                 PlaySound(IsOpen ? "SELECT" : "BACK");
                 wasOpen = IsOpen;
-                instructionState = null;
             }
             if (cachedColor != HudColorId)
             {
@@ -178,10 +183,8 @@ namespace FiveVibe
             {
                 if (Autonomous || Thinking)
                 {
-                    if (ShowDrivingHud) { DrawDrivingHud(box); DrawInstructions(openKey, takeoverKey); }
-                    else ReleaseInstructions();
+                    if (ShowDrivingHud) { DrawDrivingHud(box); DrawInstructions(box,openKey, takeoverKey); }
                 }
-                else ReleaseInstructions();
                 return null;
             }
 
@@ -194,8 +197,12 @@ namespace FiveVibe
             if(wheel!=0)
             {
                 if(Hit(mouseX,mouseY,box.Left,box.InputTop,box.Width,.083f)) inputScroll=Math.Max(0,inputScroll+wheel);
-                else if(menuTab==1 || menuTab==2) menuPage=Math.Max(0,menuPage-wheel);
-                else scroll=Math.Max(0,scroll+wheel*3);
+                else if(Hit(mouseX,mouseY,box.Left,box.HistoryTop,box.Width,box.HistoryBottom-box.HistoryTop))
+                {
+                    if(menuTab==1 || menuTab==2) menuPage=Math.Max(0,menuPage-wheel);
+                    else if(menuTab==3 || menuTab==5)menuScroll=Math.Max(0,menuScroll-wheel*.037f);
+                    else if(menuTab==0)scroll=Math.Max(0,scroll+wheel*3);
+                }
             }
 
             float x = box.Left, y = box.Top, p = box.Padding;
@@ -221,7 +228,7 @@ namespace FiveVibe
             DrawTabs(box,mouseX,mouseY,click);
             if(menuTab==0) DrawHistory(box);
             else DrawSubmenu(box,mouseX,mouseY,click);
-            Text(scroll > 0 ? "HISTORY  /  PgDn: latest messages" : "QUICK REQUESTS  /  TAB", x + p, y + .523f, .215f, Muted);
+            Text(menuTab==0 && scroll > 0 ? "HISTORY  /  PgDn: latest messages" : "QUICK REQUESTS  /  TAB", x + p, y + .523f, .215f, Muted);
             float gap = .006f / box.Aspect;
             float chipW = (box.Width - p * 2 - gap * 2) / 3;
             string[] quickCommands = OnFoot ? FootCommands : QuickCommands;
@@ -249,8 +256,7 @@ namespace FiveVibe
 
             Text(Provider == "OPENAI" ? "AI COMPANION" : Provider == "OPENAI_PENDING" ? "SET UP AI" : "LOCAL COMMANDS", x + p, y + .698f, .225f, Muted);
             TextRight(Input.Length + "/420", box.Right - p, y + .698f, .225f, Muted);
-            Text(inputLines.Length>3 ? "Shift+PgUp/PgDn: scroll input lines" : "Write a request. Set the vibe.", x + p, y + .725f, .225f, Muted);
-            DrawInstructions(openKey, takeoverKey);
+            DrawInstructions(box,openKey, takeoverKey);
             return click && sendHover ? SubmitInput() : null;
         }
 
@@ -261,20 +267,26 @@ namespace FiveVibe
             {
                 float left=box.Left+box.Padding+i*(width+gap);
                 if(Button(MenuTabs[i],left,box.Top+.146f,width,.031f,mx,my,click,i==menuTab))
-                { menuTab=i; menuPage=0; }
+                { menuTab=i; menuPage=0; menuScroll=0; }
             }
         }
         private bool Button(string label,float x,float y,float w,float h,float mx,float my,bool click,bool selected=false)
         {
+            if(menuViewport!=null && !menuViewport.Contains(y,h))return false;
             bool hover=Hit(mx,my,x,y,w,h);
             Rect(x,y,w,h,hover||selected ? accent : Color.FromArgb(200,35,35,35));
-            Text(HudText.Tail(label,w-.012f/Function.Call<float>(Hash.GET_ASPECT_RATIO,false),s=>NativeMeasure(s,.235f)),x+.004f,y+.004f,.235f,hover||selected ? Color.Black : White);
+            float aspect=Function.Call<float>(Hash.GET_ASPECT_RATIO,false);
+            Text(HudText.Tail(label,w-.012f/aspect,s=>NativeMeasure(s,.235f)),x+.004f/aspect,y+.004f,.235f,hover||selected ? Color.Black : White);
             if(click&&hover) { PlaySound("NAV_UP_DOWN"); return true; }
             return false;
         }
         private void DrawSubmenu(HudLayout box,float mx,float my,bool click)
         {
-            float left=box.Left+box.Padding,width=box.TextWidth,y=box.Top;
+            bool scrollable=menuTab==3 || menuTab==5;
+            menuTextRight=box.Right-box.Padding;
+            menuViewport=scrollable?new HudMenuViewport(box.HistoryTop,box.MenuBottom,box.Top+(menuTab==3?.645f:.571f),menuScroll):null;
+            if(menuViewport!=null)menuScroll=menuViewport.Offset;
+            float left=box.Left+box.Padding,width=box.TextWidth,y=box.Top-(scrollable?menuScroll:0);
             if(menuTab==1)
             {
                 var places=PlaceCatalog.All;
@@ -322,7 +334,10 @@ namespace FiveVibe
                 string[] realActions={RealClock?"realtime_clock_off":"realtime_clock",RealWeather?"realtime_weather_off":"realtime_weather","realtime_off"};
                 for(int i=0;i<3;i++) if(Button(realLabels[i],left+i*(realCell+gap),y+.497f,realCell,.032f,mx,my,click))
                     pendingUiPlan=CommandPlan.Create(realActions[i],"current",45,"none",realLabels[i]);
-                Text("Set your city / use location in the companion.",left,y+.543f,.215f,Muted);
+                Text("Set weather location using the request below.",left,y+.543f,.215f,Muted);
+                if(Button("Set weather city...",left,y+.572f,width,.034f,mx,my,click))
+                {Input="Set weather location to ";menuTab=0;menuScroll=0;}
+                Text("Type city + country, then press Enter.",left,y+.618f,.215f,Muted);
             }
             else if(menuTab==5)
             {
@@ -350,6 +365,21 @@ namespace FiveVibe
                 string[] notes={HudToggleKeyName+" toggles this display at any time.","Hiding it keeps your AI action running.","F8 always stops and returns control.","Your choice is saved for future sessions."};
                 for(int i=0;i<notes.Length;i++) Text(notes[i],left,y+.326f+i*.035f,.245f,Muted);
             }
+            var viewport=menuViewport;menuViewport=null;
+            if(viewport!=null)DrawMenuScroll(box,viewport,mx,my,click);
+        }
+        private void DrawMenuScroll(HudLayout box,HudMenuViewport viewport,float mx,float my,bool click)
+        {
+            if(viewport.MaximumOffset<=0)return;
+            float left=box.Left+box.Padding,buttonWidth=.035f/box.Aspect,gap=.006f/box.Aspect;
+            if(Button("^",left,box.MenuScrollTop,buttonWidth,.021f,mx,my,click))menuScroll=Math.Max(0,menuScroll-.074f);
+            if(Button("v",box.Right-box.Padding-buttonWidth,box.MenuScrollTop,buttonWidth,.021f,mx,my,click))menuScroll=Math.Min(viewport.MaximumOffset,menuScroll+.074f);
+            string hint=viewport.Offset<.0001f?"MORE BELOW / wheel or PgDn":viewport.Offset>=viewport.MaximumOffset-.0001f?"MORE ABOVE / wheel or PgUp":"SCROLL / wheel or PgUp / PgDn";
+            Text(hint,left+buttonWidth+gap,box.MenuScrollTop+.002f,.205f,Muted);
+            float trackX=box.Right-.008f/box.Aspect,trackHeight=viewport.Bottom-viewport.Top;
+            float thumbHeight=trackHeight*trackHeight/(trackHeight+viewport.MaximumOffset);
+            Rect(trackX,viewport.Top,.002f/box.Aspect,trackHeight,Color.FromArgb(70,255,255,255));
+            Rect(trackX,viewport.Top+(trackHeight-thumbHeight)*viewport.Offset/viewport.MaximumOffset,.002f/box.Aspect,thumbHeight,accent);
         }
         private void QueueWorld(CommandPlan plan,string request) { plan.Message=request; pendingUiPlan=plan; }
         private void DrawPager(HudLayout box,int pages,float mx,float my,bool click)
@@ -452,39 +482,26 @@ namespace FiveVibe
                 width, height, 0f, color.R, color.G, color.B, 235, false, 0);
         }
 
-        private void DrawInstructions(string openKey, string takeoverKey)
+        private void DrawInstructions(HudLayout box,string openKey, string takeoverKey)
         {
-            if (instructions == null) instructions = Scaleform.RequestMovie("INSTRUCTIONAL_BUTTONS");
-            if (instructions == null || !instructions.IsLoaded) return;
-            string state = IsOpen ? "open" : "driving";
-            if (instructionState != state)
+            string[] keys=IsOpen?new[]{"ENTER","TAB","ESC",takeoverKey}:new[]{openKey,takeoverKey};
+            string[] labels=IsOpen?new[]{"Send","Quick",menuTab==0?"Close":"Back","Take over"}:new[]{"Open chat","Take over"};
+            string state=string.Join("|",keys)+"/"+string.Join("|",labels)+"/"+box.Aspect+"/"+box.TextWidth;
+            if(hintState!=state) {hintRow=HudHintRow.Fit(keys,labels,box.TextWidth,box.Aspect,NativeMeasure);hintState=state;}
+            var row=hintRow;
+            float left=box.Left+box.Padding,y=IsOpen?box.HintsTop:box.SafeBottom-.034f;
+            if(!IsOpen)Rect(left-.006f/box.Aspect,y-.003f,row.Width+.012f/box.Aspect,.031f,Color.FromArgb(190,0,0,0));
+            for(int i=0;i<keys.Length;i++)
             {
-                instructions.CallFunction("CLEAR_ALL");
-                instructions.CallFunction("TOGGLE_MOUSE_BUTTONS", false);
-                instructions.CallFunction("SET_MAX_WIDTH", .65f);
-                instructions.CallFunction("SET_BACKGROUND_COLOUR", 0, 0, 0, 165);
-                instructions.CallFunction("SET_DATA_SLOT", 0, "t_" + takeoverKey, "Take over");
-                if (IsOpen)
-                {
-                    instructions.CallFunction("SET_DATA_SLOT", 1, "t_ESC", "Close");
-                    instructions.CallFunction("SET_DATA_SLOT", 2, "t_TAB", "Quick requests");
-                    instructions.CallFunction("SET_DATA_SLOT", 3, "t_ENTER", "Send");
-                }
-                else instructions.CallFunction("SET_DATA_SLOT", 1, "t_" + openKey, "Open chat");
-                instructions.CallFunction("DRAW_INSTRUCTIONAL_BUTTONS", 0);
-                instructionState = state;
+                float x=left+row.Starts[i];
+                Rect(x,y,row.KeyWidths[i],.025f,White);
+                Text(keys[i],x+.005f/box.Aspect,y+.002f,row.Scale,Color.Black);
+                Text(labels[i],x+row.KeyWidths[i]+.005f/box.Aspect,y+.002f,row.Scale,White);
             }
-            instructions.Render2D();
-        }
-        private void ReleaseInstructions()
-        {
-            if (instructions != null) { instructions.Dispose(); instructions = null; }
-            instructionState = null;
         }
         public void Dispose()
         {
             disposed = true;
-            ReleaseInstructions();
             if (lastTextureRequest != 0) Function.Call(Hash.SET_STREAMED_TEXTURE_DICT_AS_NO_LONGER_NEEDED, "commonmenu");
         }
         private void PlaySound(string sound)
@@ -515,8 +532,10 @@ namespace FiveVibe
                 chunk=>Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME,chunk));
             return Function.Call<float>(Hash.END_TEXT_COMMAND_GET_SCREEN_WIDTH_OF_DISPLAY_TEXT, true);
         }
-        private static void Text(string text, float x, float y, float scale, Color color, int font = 0)
+        private void Text(string text, float x, float y, float scale, Color color, int font = 0)
         {
+            if(menuViewport!=null && !menuViewport.Contains(y,.025f))return;
+            if(menuViewport!=null)text=HudText.Tail(text,menuTextRight-x,s=>NativeMeasure(s,scale));
             SetFont(scale, font);
             Function.Call(Hash.SET_TEXT_COLOUR, color.R, color.G, color.B, color.A);
             Function.Call(Hash.SET_TEXT_JUSTIFICATION, 1);
