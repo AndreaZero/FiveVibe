@@ -10,11 +10,19 @@ An open-source AI companion for GTA V Enhanced Story Mode. Give your character a
 
 FiveVibe includes a native in-game chat and a local browser companion. Requests can be written in English or Italian; the interface and assistant replies are in English.
 
-AI interprets text requests into validated game actions; GTA's native tasks and controls move the character. The mod does not generate images, models, textures, voices or NPC dialogue, and its release contains no AI-generated game assets. Basic local commands work without AI or an API key. The website's concept illustrations are separate from the mod download.
+AI interprets text requests into validated game actions; GTA's native tasks and controls move the character. The mod does not generate images, models, textures, voices or NPC dialogue, and its release contains no AI-generated game assets. Basic local commands work without AI or an API key. Website imagery is separate from the mod download; original gameplay captures, AI-assisted presentation edits and concept illustrations are labelled separately.
 
 [Website](https://fivevibe.gta-vi.it) · [Download v0.13.1 (experimental pre-release)](https://github.com/AndreaZero/FiveVibe/releases/tag/v0.13.1) · [Project status](docs/status.md) · [Publication guide and description draft](docs/publishing.md)
 
 **Status: experimental, v0.13.1.** Free-roam driving has been confirmed by the original user. Timed drives with return, themed drives, favorites, vehicle radio controls, automatic driving cinema, vehicle categories and real-world time/weather are implemented and logic-tested; their native behavior still needs in-game validation. Mission Pilot implements a first full-flow attempt for **Franklin and Lamar**; no successful autonomous playthrough has yet been observed. Background gameplay depends on GTA continuing to run while unfocused.
+
+## Captured in GTA
+
+The project author supplied these in-game captures of the native chat, driving HUD and World menu. The presentation versions use **AI-assisted visual highlighting**; the unmodified PNGs remain available for comparison. These images show the interface and observed driving state, not a completed timed return, tour or mission.
+
+[![FiveVibe in-game chat with visual emphasis](https://raw.githubusercontent.com/AndreaZero/FiveVibe/main/docs/screenshots/chat-driving-highlighted.png)](https://github.com/AndreaZero/FiveVibe/blob/main/docs/screenshots/chat-driving-original.png)
+
+[Chat original](https://github.com/AndreaZero/FiveVibe/blob/main/docs/screenshots/chat-driving-original.png) · [Driving HUD](https://github.com/AndreaZero/FiveVibe/blob/main/docs/screenshots/driving-hud-highlighted.png) · [World menu](https://github.com/AndreaZero/FiveVibe/blob/main/docs/screenshots/world-menu-highlighted.png) · [All five originals and processing details](https://github.com/AndreaZero/FiveVibe/tree/main/docs/screenshots)
 
 ## What you can do
 

@@ -17,7 +17,7 @@ The release contains the mod DLL, public configuration, helpers, license and doc
 | Area | What exists | Validation limit |
 | --- | --- | --- |
 | Chat and driving | Native chat, local commands, optional OpenAI interpretation, nearby available vehicle acquisition and road-AI driving | Original user confirmed base chat/driving; not every later feature |
-| Native menus | Six tabs, bounded World/Camera scrolling, fixed composer/quick requests, full key badges and a shortcut to the existing weather-city command | Actual drawing/input code passed 823 recording-native checks across aspect ratios and safe zones; final in-game visual confirmation pending |
+| Native menus | Six tabs, bounded World/Camera scrolling, fixed composer/quick requests, full key badges and a shortcut to the existing weather-city command | Actual drawing/input code passed 823 recording-native checks; author captures now show the World menu, chat and full footer labels. Camera-menu and complete interaction testing remain pending |
 | Timed drives | 1–120 minutes of cruising, then return near the captured origin; local/AI commands, companion duration field, HUD countdown and observed stages | Clock/command/UI checks passed; full native duration/pause/return journey still unverified |
 | Themed drives | Coast and countryside four-stop itineraries, local/AI starts, companion buttons and HUD progress; continuous intermediate legs and confirmed final stop | State/command/UI checks passed; both full native journeys still unverified |
 | Favorites | Named current-position saves, local persistence for 50 places, chat returns and companion Drive/Walk buttons; saved entries join native Places/AI catalog | Persistence, dispatch and simulated browser checks passed; actual in-game save/restart/return pending |
@@ -36,7 +36,7 @@ Overlay tests compile the actual ChatOverlay drawing and input code against reco
 
 The four synthetic live AI timed-drive probes and headless Chrome companion checks recorded for v0.13.0 remain prior integration evidence; this menu patch does not change those paths. Those checks established interface/interpretation behavior, not completed native journeys. Radio, favorite and themed-drive validation remains recorded in the respective releases.
 
-AI interprets text into validated actions. GTA natives and controls execute them. Local radio commands and the Mission Pilot control loop do not require continuous model calls. No image, model, texture, voice or NPC-dialogue generation is implemented. These runtime facts do not certify source or promotional-material authorship. The website's labelled AI-generated concept artwork is separate from the mod ZIP.
+AI interprets text into validated actions. GTA natives and controls execute them. Local radio commands and the Mission Pilot control loop do not require continuous model calls. No image, model, texture, voice or NPC-dialogue generation is implemented. These runtime facts do not certify source or promotional-material authorship. The website now includes author-supplied gameplay captures and explicitly labelled AI-assisted presentation edits, with the unmodified PNGs available for comparison. Its separate interactive interface previews remain labelled concept artwork. These presentation assets are separate from the mod ZIP.
 
 ## Next gameplay acceptance work
 
@@ -49,3 +49,7 @@ AI interprets text into validated actions. GTA natives and controls execute them
 7. Test vehicle-category driving, cinema restoration, real-world overrides and background companion use. Capture actual gameplay screenshots/video.
 8. Run Franklin and Lamar without assistance and retain its result screen/diagnostic evidence. Keep the unverified label until a full run succeeds.
 9. Verify the website and resolve GTA5-Mods eligibility before submission.
+
+## Author-supplied screenshot evidence
+
+On 18 October 2026 the author supplied five captures: native chat near the pool, the scrolled World menu with the weather-city shortcut and complete key labels, a driving view with task HUD, chat showing vehicle acquisition and driving dispatch, and a second HUD view. Originals and the three highlighted presentation versions are in the [screenshot gallery](https://github.com/AndreaZero/FiveVibe/tree/main/docs/screenshots). The hero uses a supplied original as its source; highlighted images are disclosed as AI-assisted edits. These captures support limited visual/interface observations, without establishing successful timed returns, full itineraries or Mission Pilot completion.
