@@ -1,0 +1,25 @@
+name: Build and checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch verified SHVDNE SDK
+        shell: powershell
+        run: .\scripts\Get-Dependencies.ps1
+      - name: Compile and check FiveVibe
+        shell: powershell
+        run: .\scripts\Build.ps1
+      - name: Check updates and migration
+        shell: powershell
+        run: .\tests\Test-ChatUpdate.ps1
+      - name: Check public files
+        shell: powershell
+        run: .\scripts\Test-PublicFiles.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FiveVibe
+          path: dist/FiveVibe

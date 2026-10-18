@@ -1,0 +1,10 @@
+[
+  {
+    "Id": "my_meeting_spot",
+    "Name": "My Meeting Spot",
+    "Aliases": ["our spot", "il nostro posto"],
+    "X": 195.0,
+    "Y": -935.0,
+    "Z": 30.0
+  }
+]

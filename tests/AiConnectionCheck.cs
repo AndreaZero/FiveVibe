@@ -1,0 +1,65 @@
+using System;
+using System.IO;
+using System.Threading;
+using FiveVibe;
+
+internal static class AiConnectionCheck
+{
+    public static int Main(string[] args)
+    {
+        try
+        {
+            if ((args.Length != 1 && args.Length != 2) || !File.Exists(args[0]))
+            { Console.WriteLine("Provide the local env file path."); return 2; }
+            var config = AiConfiguration.Load(args[0], "gpt-4.1-mini");
+            if (!config.HasApiKey) { Console.WriteLine("No API key configured in the env file. No request sent."); return 2; }
+            using (var planner = new OpenAiPlanner(config.ApiKey, config.Model))
+            {
+                if (args.Length==2 && args[1]=="--places")
+                {
+                    string[] texts={"Portami a Paleto Bay, guida senza fretta.","Let's take a walk to Mirror Park.","Drive to Sandy Shores Airfield.","Mi piacerebbe andare al molo con la ruota panoramica.","Take me to Atlantis.","Go to Michael's house."};
+                    string[] actions={"place","walk_place","place","place","say","place"};
+                    string[] places={"paleto_bay","mirror_park","sandy_airfield","del_perro_pier","none","michael_home"};
+                    for(int i=0;i<texts.Length;i++) {
+                        string actor=i==5?"franklin":"michael";
+                        var result=planner.PlanAsync(texts[i],"SYNTHETIC TEST: character="+actor+"; in_vehicle=true; driving=idle; target_speed_kmh=45; mission_active=false",new string[0],CancellationToken.None).GetAwaiter().GetResult();
+                        bool correct=result.Action==actions[i] && result.Place==places[i] && (result.Actor=="current" || result.Actor==actor);
+                        Console.WriteLine("Place case "+(i+1)+": "+result.Action+" / "+result.Place+" / actor="+result.Actor+" / "+(correct?"OK":"UNEXPECTED"));
+                        if(!correct)return 3;
+                    }
+                    Console.WriteLine("Named-place checks passed. No action sent to GTA."); return 0;
+                }
+                if (args.Length == 2 && (args[1] == "--expanded" || args[1] == "--npc-mission"))
+                {
+                    string context = "SIMULAZIONE DI COLLAUDO. personaggio=michael; guida=idle; in_auto=false; velocita_obiettivo_kmh=45; " +
+                        "missione_attiva=false; telefono_visibile=false; chiamata_in_corso=false; npc_vicino=5 metri; npc_davanti=5 metri; " +
+                        "npc_precedente_disponibile=true; missione_disponibile=Lester a 200 metri";
+                    string[] prompts = { "Facciamo due passi qui intorno, senza prendere la macchina.", "Passa a Trevor.", "Sta suonando il cellulare, rispondi per favore.", "Vai da quella persona davanti a noi e salutala.", "Raggiungi il punto della missione di Lester." };
+                    string[] expected = { "walk_wander", "switch_character", "phone_answer", "greet_npc", "mission" };
+                    for (int i = args[1] == "--npc-mission" ? 3 : 0; i < prompts.Length; i++)
+                    {
+                        var result = planner.PlanAsync(prompts[i], context, new string[0], CancellationToken.None).GetAwaiter().GetResult();
+                        bool correct = result.Action == expected[i] && (i != 1 || result.Actor == "trevor") && (i != 3 || result.Target == "ahead") && (i != 4 || result.Target == "lester");
+                        Console.WriteLine("Verifica " + (i + 1) + ": " + result.Action + " / " + (correct ? "OK" : "DIVERSA DAL PREVISTO"));
+                        if (!correct) return 3;
+                    }
+                    Console.WriteLine("Expanded actions interpreted by OpenAI. No action sent to the game.");
+                    return 0;
+                }
+                // Synthetic context only: this diagnostic never calls the game.
+                var plan = planner.PlanAsync("Prendiamo un'auto e portami a fare un giretto senza fretta, giusto per rilassarci.",
+                    "SIMULAZIONE DI COLLAUDO, nessun gioco controllato. personaggio=michael; guida=idle; velocita_obiettivo_kmh=45; in_auto=true",
+                    new string[0], CancellationToken.None).GetAwaiter().GetResult();
+                Console.WriteLine("OpenAI ha risposto con un piano valido: " + plan.Action + ", velocita obiettivo " + plan.SpeedKmh + " km/h.");
+                Console.WriteLine("Chiave non visualizzata. Nessuna azione inviata al gioco.");
+                return plan.Action == "cruise" ? 0 : 3;
+            }
+        }
+        catch (Exception error)
+        {
+            // Planner and config errors contain no request headers, response bodies or key values.
+            Console.Error.WriteLine(error is FormatException || error is InvalidOperationException ? error.Message : "Verifica non riuscita: controlla connessione e accesso al file .env.");
+            return 1;
+        }
+    }
+}
