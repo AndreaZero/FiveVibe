@@ -15,6 +15,18 @@ internal static class AiConnectionCheck
             if (!config.HasApiKey) { Console.WriteLine("No API key configured in the env file. No request sent."); return 2; }
             using (var planner = new OpenAiPlanner(config.ApiKey, config.Model))
             {
+                if(args.Length==2 && args[1]=="--mission")
+                {
+                    string[] prompts={"Completa da solo Franklin e Lamar, leggi gli obiettivi e prosegui fino alla fine.","Start Mission Pilot for Franklin and Lamar.","Completa il Prologo da solo.","A che punto sei con la missione?"};
+                    for(int i=0;i<prompts.Length;i++)
+                    {
+                        var missionPlan=planner.PlanAsync(prompts[i],"SYNTHETIC TEST: character=franklin; driving=idle; in_vehicle=false; supported_mission_running=true; mission_pilot=active; mission_pilot_stage=Follow Lamar; observed_objective_label=AR1_CHASE",new string[0],CancellationToken.None).GetAwaiter().GetResult();
+                        bool ok=i<2 ? missionPlan.Action=="mission_auto" && (missionPlan.Actor=="current" || missionPlan.Actor=="franklin") : i==2 ? missionPlan.Action=="say" : missionPlan.Action=="mission_status";
+                        Console.WriteLine("Mission case "+(i+1)+": "+missionPlan.Action+" / "+(ok?"OK":"UNEXPECTED"));
+                        if(!ok) return 3;
+                    }
+                    Console.WriteLine("Mission interpretation passed. No action sent to GTA."); return 0;
+                }
                 if(args.Length==2 && args[1]=="--world-ui")
                 {
                     string[] prompts={"Metti pioggia e imposta l'ora alle 22:30.","Nascondi il riquadro della task attiva, continua pure a guidare.","Freeze the clock.","Rimetti il meteo automatico e fai ripartire il tempo."};
@@ -71,7 +83,9 @@ internal static class AiConnectionCheck
         catch (Exception error)
         {
             // Planner and config errors contain no request headers, response bodies or key values.
-            Console.Error.WriteLine(error is FormatException || error is InvalidOperationException ? error.Message : "Verifica non riuscita: controlla connessione e accesso al file .env.");
+            Console.Error.WriteLine(error is FormatException || error is InvalidOperationException ||
+                (error is ArgumentException && error.Message.StartsWith("Mission Pilot", StringComparison.Ordinal)) ? error.Message :
+                "Connection check failed ("+error.GetType().Name+"). Check the connection and local env configuration.");
             return 1;
         }
     }

@@ -10,7 +10,7 @@ An open-source AI companion for GTA V Enhanced Story Mode. Give your character a
 
 FiveVibe includes a native in-game chat and a local browser companion. Requests can be written in English or Italian; the interface and assistant replies are in English.
 
-**Status: experimental, v0.6.1.** Driving has been confirmed by the original user. New walking, phone, character switching and mission assistance still need broader in-game testing. The browser's HTTP interface is tested independently; background gameplay depends on GTA continuing to run while unfocused.
+**Status: experimental, v0.7.0.** Free-roam driving has been confirmed by the original user. Mission Pilot now implements a first full-flow attempt for **Franklin and Lamar**; no successful autonomous playthrough has yet been observed. Walking, phone and character switching still need broader in-game testing. Background gameplay depends on GTA continuing to run while unfocused.
 
 ## What you can do
 
@@ -24,6 +24,7 @@ FiveVibe includes a native in-game chat and a local browser companion. Requests 
 | Change perspective | “Switch to Trevor.” |
 | Use the phone | “Answer the phone.” / “Hang up.” |
 | Get mission assistance | “What missions are available?” / “Go to Lester's mission marker.” |
+| Try Mission Pilot | “Start Mission Pilot for Franklin and Lamar.” |
 | Take over | Press **F8**, click **Stop & take over**, or say “stop.” |
 
 42 built-in places cover landmarks, neighbourhoods and countryside: Del Perro Pier, Mirror Park, Vinewood, Rockford Hills, Galileo Observatory, Sandy Shores, Grapeseed, Paleto Bay, Alamo Sea, Route 68, the protagonists' houses and more. The companion lists and searches the full catalog.
@@ -129,29 +130,32 @@ Weather/time changes leave an active drive or walk running. The story retains co
 
 ## What is still limited
 
-- One action per request. A character switch may precede that action; general multi-step plans are not implemented.
+- One action per request. A character switch may precede that action. Mission Pilot has one explicit mission profile; arbitrary multi-step plans are not implemented.
 - Driving uses native GTA pathfinding: traffic, collisions and inaccessible routes can still interrupt it. It looks for an empty, unlocked, parked car rather than spawning one or ejecting an NPC.
 - Walking destinations are limited to 600 metres; forward movement to 5–100 metres. A free stroll lasts up to three minutes. Blocked paths stop without teleporting.
 - NPC interactions are approach, follow and an attempted native greeting. Generated NPC conversations and contact calling are not implemented.
 - Story switching respects the save's unlocked characters and GTA's current restrictions.
-- Mission support means recognized map markers, status and explicit movement/phone/interaction help. FiveVibe cannot read every objective or finish the campaign autonomously.
-- Cutscenes, death and story transitions can interrupt autonomy. F8 and browser Stop cancel late AI responses as well.
+- General mission support means map markers, status and explicit movement/phone/interaction help. Mission Pilot additionally attempts Franklin and Lamar. FiveVibe cannot read every mission's objectives or finish the campaign autonomously.
+- Mission Pilot waits through cutscenes; other autonomy can be interrupted by story transitions. F8 and browser Stop cancel the pilot and late AI responses.
 
 Use mods in Story Mode. Follow Rockstar's official BattlEye settings for modded single-player; restore the appropriate clean setup before GTA Online.
 
-### How mission assistance works today
+### Mission Pilot: Franklin and Lamar
 
-FiveVibe is currently a tool for explicit actions, not an autonomous story player. The AI plans one supported action per request; it does not continuously read and reason about the mission's next step.
+1. In Story Mode, open **Pause > Game > Replay Mission > Franklin and Lamar** (the menu names depend on GTA's language). The mission must already be unlocked. Alternatively use its normal story start.
+2. At the first playable section press F7 and send **“Start Mission Pilot for Franklin and Lamar”**. The same command works offline and from the companion. You can arm it before starting the replay; it waits up to ten minutes for this specific mission.
+3. The pilot attempts: walk with Lamar → choose a mission car → follow his chase route → park → evade the police → return to Simeon's dealership → enter Franklin's Buffalo → wait for Lamar → drive home → wait for the final cutscene and result. No manually placed waypoints are needed.
+4. The native task HUD and companion show the current stage. F9 hides the task HUD without stopping the pilot. **F8 / Stop takes over immediately**; a new movement request replaces the pilot. Resume with the same start command after repositioning, or restart the replay yourself.
 
-1. **Before a mission:** “What missions are available?” checks the global mission-active flag and reports the nearest recognized available story marker for the current character. It is not a complete quest log.
-2. **Reaching a marker:** “Go to Lester's mission marker” selects a matching known map marker. On foot it walks if the point is within 600 metres; in a car it uses the driving controller. A car stops near the point (about 22 metres); the player may still need to get out or enter the activation area. FiveVibe does not force-start missions.
-3. **When GTA starts the mission:** existing autonomy and pending AI planning are cancelled. GTA's story tasks and cutscenes take control; FiveVibe does not clear those tasks. Owned weather/clock overrides are released.
-4. **During the mission:** when GTA allows player control, explicit requests for walking, driving to a manually placed waypoint, phone or contextual interaction can help. The player supplies the objective or next action. FiveVibe does not automatically read objective subtitles, select the yellow mission target, handle combat, switch mission roles or decide the next stage.
-5. **Afterward:** there is no automatic “complete this, collect the next mission, continue the campaign” loop.
+The profile detects the running `armenian1` script, queries its known objective text labels and observes mission entities, passenger occupancy and wanted level. Short objective messages are remembered between subtitle appearances. The chase reads the game's loaded vehicle recording as steering geometry; Franklin's car still moves through ordinary physics and inputs. Other driving legs use road AI with precise arrival steering. Scenes and script-disabled driving controls are yielded to GTA.
 
-A practical current session is: ask to approach the mission, enter its trigger yourself if necessary, let the cutscene play, set a waypoint for a driving segment and request driving, then handle remaining objectives or give another supported request.
+Success requires a positive change in Franklin's native mission-pass counter, tied to the observed mission session. A failure counter or death stops the attempt. If the script ends without a confirmed result within 30 seconds, the result remains **unconfirmed**. The pilot does not click retry menus, start the next mission or seek gold-medal conditions.
 
-Whole-mission delegation needs actual objective/progress detection, stage transitions, mission-specific actions and recovery from failure. The roadmap should start with a tested driving mission rather than promising every mission from marker navigation alone.
+**This is an unverified gameplay prototype.** Shortcuts, jumps, traffic, police escape and Enhanced-version differences can defeat the controller. It tries one short reverse recovery before returning control when blocked. Automated state tests and compilation do not establish an end-to-end win; an actual replay is the next acceptance test. See [profile design and evidence](docs/mission-pilot.md).
+
+A private local diagnostic log is replaced on each pilot start at `%LOCALAPPDATA%\FiveVibe\mission-session.jsonl`. It contains stage transitions, observed objective labels/text, game position, wanted level and result counters. It contains no credentials or screenshots, and is not automatically uploaded. Check it before sharing a bug report.
+
+Other missions retain explicit assistance: approach a recognized marker, then request a particular movement, phone or interaction. FiveVibe does not force-start missions or provide a universal campaign player. The Prologue is outside this first profile.
 
 Character switches wait for the requested protagonist, returned player control and a stable finished transition. The character wheel/loading stage is not treated as a rejection after five seconds. A two-minute unconfirmed timeout discards follow-up actions without claiming GTA rejected the switch. F8 cancels FiveVibe's wait and queued follow-up; GTA can still finish its own camera transition.
 
@@ -170,6 +174,7 @@ Tests cover local parsing, destination catalogs, custom-file validation, OpenAI 
     .\build\AiConnectionCheck.exe .\.env
     .\build\AiConnectionCheck.exe .\.env --expanded
     .\build\AiConnectionCheck.exe .\.env --places
+    .\build\AiConnectionCheck.exe .\.env --mission
 
 Close GTA before updates. The source updater preserves configuration and makes a backup:
 
@@ -184,7 +189,7 @@ It also migrates the earlier GTA AI prototype, preserving its env-file reference
 - Remember a favourite spot from the current waypoint.
 - Short action sequences: arrive, park, get out, take a walk.
 - Better stuck detection and activity feedback for background sessions.
-- Mission-specific assistance from actual objective state.
+- Validate Franklin and Lamar in-game, then add independently tested mission profiles.
 - Optional richer NPC interactions.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), [architecture](docs/architecture.md), and [CHANGELOG.md](CHANGELOG.md).

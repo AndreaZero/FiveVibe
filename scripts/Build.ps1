@@ -23,6 +23,11 @@ $testSources = @('src\CharacterSwitchMonitor.cs','src\SessionSettings.cs','src\P
 if ($LASTEXITCODE -ne 0) { throw 'Check compilation failed.' }
 & (Join-Path $buildRoot 'PlannerTests.exe')
 if ($LASTEXITCODE -ne 0) { throw 'Checks failed.' }
+$missionSources = @('src\MissionFlow.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','tests\MissionTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
+& $compiler @commonArgs '/target:exe' ('/out:' + (Join-Path $buildRoot 'MissionTests.exe')) @missionSources
+if ($LASTEXITCODE -ne 0) { throw 'Mission checks failed to compile.' }
+& (Join-Path $buildRoot 'MissionTests.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Mission checks failed.' }
 $probeSources = @('src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','src\OpenAiPlanner.cs','src\AiConfiguration.cs','tests\AiConnectionCheck.cs') | ForEach-Object { Join-Path $projectRoot $_ }
 & $compiler @commonArgs '/target:exe' ('/out:' + (Join-Path $buildRoot 'AiConnectionCheck.exe')) @probeSources
 if ($LASTEXITCODE -ne 0) { throw 'AI connection check compilation failed.' }
@@ -35,6 +40,9 @@ Copy-Item -LiteralPath (Join-Path $projectRoot 'config\FiveVibe.ini') -Destinati
 Copy-Item -LiteralPath (Join-Path $projectRoot 'config\FiveVibe.locations.example.json') -Destination (Join-Path $distRoot 'scripts\FiveVibe.locations.example.json')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'scripts\Open-Companion.ps1') -Destination $distRoot
 Copy-Item -LiteralPath (Join-Path $projectRoot 'README.md') -Destination $distRoot
+Copy-Item -LiteralPath (Join-Path $projectRoot 'CHANGELOG.md'),(Join-Path $projectRoot 'CONTRIBUTING.md') -Destination $distRoot
+New-Item -ItemType Directory -Path (Join-Path $distRoot 'docs') -Force | Out-Null
+Get-ChildItem -LiteralPath (Join-Path $projectRoot 'docs') -Filter '*.md' | Copy-Item -Destination (Join-Path $distRoot 'docs')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'LICENSE') -Destination $distRoot
 Copy-Item -LiteralPath (Join-Path $projectRoot 'SECURITY.md') -Destination $distRoot
 Copy-Item -LiteralPath (Join-Path $projectRoot 'scripts\Enable-BackgroundPlay.ps1') -Destination $distRoot

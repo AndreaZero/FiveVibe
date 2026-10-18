@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.0 — Experimental Franklin and Lamar Mission Pilot
+
+- Add a bounded full-flow attempt for the first driving mission, selected through English/Italian chat or the Ideas menu.
+- Read known native objective labels, mission entities, passenger occupancy and wanted state; preserve the goal between subtitles and across cutscenes.
+- Follow loaded mission-route geometry with physical steering inputs; use road AI and precise arrival steering for dealership/home legs.
+- Wait for Lamar, yield to scripted driving controls and confirm native pass/fail counter changes, including replay-controller support in the researched scripts.
+- Add a bounded stuck recovery, F8 cancellation, explicit unconfirmed results and private local diagnostics.
+- Show Mission Pilot state in the companion; document manual replay start and unsupported missions.
+- Add mission-flow and steering regressions. Full autonomous completion remains unverified in-game.
+
 ## 0.6.1 — Reliable character-switch confirmation
 
 - Remove the false rejection after five seconds during the character wheel / loading stage.

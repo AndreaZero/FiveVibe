@@ -49,10 +49,13 @@ namespace FiveVibe
         private readonly string preferencesPath;
         private readonly Keys hudKey;
         private bool ownsClockPause, ownsWeather;
+        private readonly MissionPilot missionPilot;
 
         public FiveVibeScript()
         {
             worldActions = new WorldActions(message => chat.Add(false, message), () => chat.IsOpen = false);
+            missionPilot = new MissionPilot(message => chat.Add(false, message),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FiveVibe"));
             missionWasActive = Function.Call<bool>(Hash.GET_MISSION_FLAG);
             var settings = ScriptSettings.Load(Path.Combine(BaseDirectory, "FiveVibe.ini"));
             try { PlaceCatalog.LoadCustom(Path.Combine(BaseDirectory, "FiveVibe.locations.json")); }
@@ -84,7 +87,7 @@ namespace FiveVibe
             chat.Add(false, "FiveVibe ready. " + openKey + " opens chat. Write a request or choose a suggestion. " + takeoverKey + " gives you control immediately.");
             Tick += OnTick;
             KeyDown += OnKey;
-            Aborted += delegate { CancelPlanning(); worldActions.Cancel(); ReleaseControl(); ResetWorldOverrides(); chat.Dispose(); if (planner != null) planner.Dispose(); if (companion != null) companion.Dispose(); };
+            Aborted += delegate { CancelPlanning(); missionPilot.Cancel(false); worldActions.Cancel(); ReleaseControl(); ResetWorldOverrides(); chat.Dispose(); if (planner != null) planner.Dispose(); if (companion != null) companion.Dispose(); };
             Interval = 0;
         }
 
@@ -110,6 +113,8 @@ namespace FiveVibe
             if (LocalPlanner.IsImmediateStop(prompt)) { BrakeOrRelease(); return; }
             if (Function.Call<bool>(Hash.NETWORK_IS_SESSION_ACTIVE)) { chat.Add(false, "FiveVibe runs in Story Mode."); return; }
             CancelPlanning();
+            var directPilot = LocalPlanner.Parse(prompt, speedKmh);
+            if (directPilot.Action == "mission_auto") { Execute(directPilot); return; }
             if (!useOpenAi) { Execute(LocalPlanner.Parse(prompt, speedKmh)); return; }
             if (!RefreshOpenAiConfiguration(true)) return;
             requestId = gate.Begin();
@@ -120,6 +125,7 @@ namespace FiveVibe
                 "character={0}; driving={1}; target_speed_kmh={2}; in_vehicle={3}; position=({4:0},{5:0},{6:0})",
                 ActorName(ped), phase, speedKmh, ped.IsInVehicle(), ped.Position.X, ped.Position.Y, ped.Position.Z);
             context += worldActions.Context();
+            context += missionPilot.Context();
             context+="; task_hud_visible="+chat.ShowDrivingHud+"; clock_paused="+GameClock.IsPaused+"; game_time="+ClockLabel()+"; weather="+World.Weather;
             string[] history = chat.Messages.Skip(Math.Max(0, chat.Messages.Count - 10)).Select(m => (m.User ? "utente: " : "mod: ") + m.Text).ToArray();
             planning = planner.PlanAsync(prompt, context, history, cancellation.Token);
@@ -132,6 +138,13 @@ namespace FiveVibe
             {
                 UpdateCompanion();
                 if (Game.IsPaused) return;
+                missionPilot.Tick();
+                if (missionPilot.Active || missionPilot.Result != "pending")
+                {
+                    chat.Status = missionPilot.Status;
+                    chat.Route = "Franklin and Lamar / " + missionPilot.Objective;
+                    chat.Autonomous = missionPilot.Active;
+                }
                 bool missionActive = Function.Call<bool>(Hash.GET_MISSION_FLAG);
                 if(missionActive && !missionWasActive && (ownsClockPause || ownsWeather))
                 { ResetWorldOverrides(); chat.Add(false,"World overrides released for the mission."); }
@@ -152,6 +165,7 @@ namespace FiveVibe
                     worldActions.Cancel(false);
                     ReleaseControl(false);
                     chat.IsOpen = false;
+                    if (missionPilot.Active) { chat.Status = missionPilot.Status; chat.Route = "Franklin and Lamar / " + missionPilot.Objective; chat.Autonomous = true; }
                     return;
                 }
                 if (planning != null && planning.IsCompleted)
@@ -171,25 +185,27 @@ namespace FiveVibe
                 if (afterSwitch != null) Execute(afterSwitch);
                 UpdateDriving();
                 if (chat.IsOpen) Function.Call(Hash.DISABLE_ALL_CONTROL_ACTIONS, 0);
-                else if (phase != "idle" || worldActions.BlocksMovement)
+                else if (phase != "idle" || worldActions.BlocksMovement || missionPilot.BlocksMovement)
                 {
                     // AI tasks drive the protagonist. F8 always remains available via KeyDown.
                     foreach (int control in new[] { 59, 60, 63, 64, 71, 72, 75, 76, 23, 24, 25, 30, 31, 32, 33, 34, 35 })
                         Function.Call(Hash.DISABLE_CONTROL_ACTION, 0, control, true);
                 }
                 worldActions.ApplyInput();
-                chat.Status = worldActions.Active ? worldActions.Status : phase == "idle" ? "Ready" : phase == "entering" ? "Approaching car" :
+                missionPilot.ApplyInput();
+                chat.Status = missionPilot.Active ? missionPilot.Status : worldActions.Active ? worldActions.Status : phase == "idle" ? "Ready" : phase == "entering" ? "Approaching car" :
                     phase == "leaving" ? "Leaving vehicle" : phase == "braking" ? "Stopping" : "Chill drive  /  " + speedKmh + " km/h";
                 string actor = ActorName(Game.Player.Character);
                 chat.CharacterName = actor == "current character" ? "Player" : CultureInfo.InvariantCulture.TextInfo.ToTitleCase(actor);
                 chat.HudColorId = actor == "franklin" ? 144 : actor == "trevor" ? 145 : 143;
-                chat.Autonomous = phase != "idle" || worldActions.Active;
+                chat.Autonomous = phase != "idle" || worldActions.Active || missionPilot.Active;
                 chat.OnFoot = !Game.Player.Character.IsInVehicle();
                 chat.WorldTime=ClockLabel();
                 chat.WeatherName=World.Weather.ToString();
                 chat.ClockFrozen=GameClock.IsPaused;
-                chat.CurrentSpeedKmh = vehicle != null && vehicle.Exists() ? (int)Math.Round(vehicle.Speed * 3.6f) : 0;
-                chat.Route = worldActions.Active ? worldActions.GoalLabel : hasDestination && drivingPlan != null ? "To " + destinationLabel : "Free roam";
+                var displayedCar = missionPilot.Active ? Game.Player.Character.CurrentVehicle : vehicle;
+                chat.CurrentSpeedKmh = displayedCar != null && displayedCar.Exists() ? (int)Math.Round(displayedCar.Speed * 3.6f) : 0;
+                chat.Route = missionPilot.Active ? "Franklin and Lamar / " + missionPilot.Objective : worldActions.Active ? worldActions.GoalLabel : hasDestination && drivingPlan != null ? "To " + destinationLabel : "Free roam";
                 string clickedCommand = chat.Draw(openKey.ToString(), takeoverKey.ToString());
                 if (clickedCommand != null) Submit(clickedCommand);
                 var uiPlan=chat.TakeUiPlan();
@@ -213,10 +229,11 @@ namespace FiveVibe
             lastCompanionUpdate = now;
             companion.Publish(new JavaScriptSerializer().Serialize(new {
                 actor=CultureInfo.InvariantCulture.TextInfo.ToTitleCase(ActorName(Game.Player.Character)),
-                status=chat.Status, route=chat.Route, active=phase != "idle" || worldActions.Active,
+                status=chat.Status, route=chat.Route, active=phase != "idle" || worldActions.Active || missionPilot.Active,
                 paused=Game.IsPaused, thinking=chat.Thinking, provider=chat.Provider,
                 taskHudVisible=chat.ShowDrivingHud, clockFrozen=GameClock.IsPaused,
                 gameTime=ClockLabel(), weather=World.Weather.ToString(),
+                missionPilot = new { active=missionPilot.Active, joined=missionPilot.Joined, stage=missionPilot.Status, objective=missionPilot.Objective, label=missionPilot.ObjectiveKey, result=missionPilot.Result },
                 messages=chat.Messages.Select(m => new { user=m.User, text=m.Text }).ToArray(),
                 places=PlaceCatalog.All.Select(p => new { id=p.Id, name=p.Name }).ToArray()
             }));
@@ -275,6 +292,8 @@ namespace FiveVibe
             }
             if (plan.Action == "mission_status")
             {
+                if (missionPilot.Active) { chat.Add(false, "Mission Pilot: " + missionPilot.Status + ". Observed objective: " + missionPilot.ObjectiveKey + ". F8 takes over."); return; }
+                if (MissionPilot.IsSupportedMissionRunning()) { chat.Add(false, "Franklin and Lamar is running. Say 'Start Mission Pilot' to attempt its full flow with objective detection."); return; }
                 Vector3 missionPoint;
                 string missionName;
                 if (Function.Call<bool>(Hash.GET_MISSION_FLAG)) chat.Add(false, "A mission is active. I do not read its current objective or follow its steps automatically. Set a waypoint, then ask for movement, phone or interaction help.");
@@ -282,6 +301,14 @@ namespace FiveVibe
                 else chat.Add(false, "No known mission marker is available for this character. You can set a waypoint instead.");
                 return;
             }
+            if (plan.Action == "mission_auto")
+            {
+                if (Function.Call<bool>(Hash.GET_MISSION_FLAG) && !MissionPilot.IsSupportedMissionRunning())
+                { chat.Add(false, "Mission Pilot supports Franklin and Lamar only. Start its replay from Pause > Game > Replay Mission."); return; }
+                CancelPlanning(); worldActions.Cancel(); ReleaseControl(); ResetWorldOverrides();
+                chat.IsOpen = false; missionPilot.Start(); return;
+            }
+            if (missionPilot.Active) missionPilot.Cancel();
             Ped ped = Game.Player.Character;
             if (Function.Call<bool>(Hash.IS_CUTSCENE_ACTIVE) || !Game.Player.CanControlCharacter)
             { chat.Add(false, "Wait until the game returns character control."); return; }
@@ -468,6 +495,7 @@ namespace FiveVibe
         private void Stop(string message)
         {
             CancelPlanning();
+            missionPilot.Cancel();
             worldActions.Cancel();
             ReleaseControl();
             chat.Add(false, message);
@@ -476,6 +504,7 @@ namespace FiveVibe
         private void BrakeOrRelease()
         {
             CancelPlanning();
+            missionPilot.Cancel();
             if (phase == "driving" && driver != null && driver.Exists() && vehicle != null && vehicle.Exists())
             {
                 Function.Call(Hash.TASK_VEHICLE_TEMP_ACTION, driver.Handle, vehicle.Handle, 27, 9000);
@@ -514,7 +543,7 @@ namespace FiveVibe
 
         private void Fail(Exception error)
         {
-            try { CancelPlanning(); worldActions.Cancel(); ReleaseControl(); chat.Add(false, "Action stopped: " + error.Message); }
+            try { CancelPlanning(); missionPilot.Cancel(); worldActions.Cancel(); ReleaseControl(); chat.Add(false, "Action stopped: " + error.Message); }
             catch { phase = "idle"; }
         }
 

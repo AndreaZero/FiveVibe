@@ -26,7 +26,7 @@ namespace FiveVibe
         public static readonly string[] Actions = { "cruise", "waypoint", "place", "speed", "stop", "leave", "help", "say",
             "walk_wander", "walk_forward", "walk_waypoint", "walk_place", "approach_npc", "greet_npc", "follow_npc",
             "switch_character", "phone_open", "phone_answer", "phone_hangup", "interact", "mission", "mission_status",
-            "world_settings", "hud_show", "hud_hide", "hud_toggle" };
+            "world_settings", "hud_show", "hud_hide", "hud_toggle", "mission_auto" };
         public static readonly string[] WeatherTypes={"none","auto","clear","sunny","clouds","fog","overcast","rain","thunder","smog","clearing","snow","blizzard","christmas"};
         public static readonly string[] ClockModes={"unchanged","pause","resume"};
         public static readonly string[] Actors = { "current", "michael", "franklin", "trevor" };
@@ -46,6 +46,8 @@ namespace FiveVibe
                 throw new ArgumentException("Unsupported movement parameters.");
             if (Action == "switch_character" && Actor == "current")
                 throw new ArgumentException("Choose Michael, Franklin or Trevor to switch characters.");
+            if (Action == "mission_auto" && Actor != "current" && Actor != "franklin")
+                throw new ArgumentException("Mission Pilot uses the mission's own protagonist.");
             if (Action.EndsWith("_npc", StringComparison.Ordinal) && Target != "nearest" && Target != "ahead" && Target != "current")
                 throw new ArgumentException("Invalid NPC selection.");
             if (Action != "mission" && !Action.EndsWith("_npc", StringComparison.Ordinal) && Target != "nearest")
@@ -101,6 +103,11 @@ namespace FiveVibe
             if (Has(text, "non|mai|senza|poi|oppure|not|never|then|or") || Has(text, "spara|uccidi|compra|vola|elicottero|aereo|teletrasporta|spawn|insegui|shoot|kill|teleport"))
                 return Say("In local mode, try a simple request: cruise, drive to Paleto Bay, walk to the waypoint, or stop.");
             if (Has(text, "aiuto|help|comandi|ciao")) return CommandPlan.Create("help", actor, speed);
+            bool namedPilot = Regex.IsMatch(text, @"\bfranklin (?:and|e|&) lamar\b");
+            bool pilotRequest = (Has(text, "mission pilot|autopilot|pilota missione") && Has(text, "avvia|inizia|attiva|start|enable|begin|play")) ||
+                (namedPilot && Has(text, "avvia|inizia|gioca|completa|finisci|start|play|complete|finish|drive|guida|segui"));
+            if (pilotRequest && !MissionRequests.AllowsStart(text, false)) return Say("Mission Pilot currently supports Franklin and Lamar only. Say 'Start Mission Pilot for Franklin and Lamar'.");
+            if (pilotRequest) return CommandPlan.Create("mission_auto", "current", speed);
             if (Has(text, "passa|cambia|switch|usa") && actor != "current") return CommandPlan.Create("switch_character", actor, speed);
             if (Has(text, "telefono|chiamata|telefonata|phone|call"))
                 return CommandPlan.Create(Has(text, "rispondi|accetta|answer|accept") ? "phone_answer" : Has(text, "chiudi|riaggancia|termina|close|hang up|end") ? "phone_hangup" : "phone_open", actor, speed);
@@ -159,6 +166,24 @@ namespace FiveVibe
 
         private static bool Has(string text, string words) { return Regex.IsMatch(text, @"\b(?:" + words + @")\b"); }
         private static CommandPlan Say(string message) { return CommandPlan.Create("say", "current", 45, "none", message); }
+    }
+
+    public static class MissionRequests
+    {
+        // Model output cannot silently substitute this profile for another named mission.
+        public static bool AllowsStart(string request, bool supportedMissionRunning)
+        {
+            string text = LocalPlanner.Normalize(request);
+            if (Regex.IsMatch(text, @"\b(?:prologo|prologue|repossession|complications|entire story|whole campaign|tutta la storia)\b")) return false;
+            if (Regex.IsMatch(text, @"\bfranklin\s+(?:and|e|&)\s+lamar\b")) return true;
+            if (Regex.IsMatch(text, @"^(?:please\s+)?(?:start|enable|begin|avvia|attiva|inizia)\s+(?:(?:the|il)\s+)?(?:mission pilot|autopilot|pilota missione)[.! ]*$")) return true;
+            return supportedMissionRunning && Regex.IsMatch(text, @"\b(?:questa missione|missione attiva|this mission|current mission)\b");
+        }
+        public static CommandPlan Constrain(string request, bool supportedMissionRunning, CommandPlan plan)
+        {
+            if (plan.Action != "mission_auto" || AllowsStart(request, supportedMissionRunning)) return plan;
+            return CommandPlan.Create("say", "current", 45, "none", "Mission Pilot currently supports Franklin and Lamar only. Say 'Start Mission Pilot for Franklin and Lamar' to select that profile.");
+        }
     }
 
     public static class GameplayRules

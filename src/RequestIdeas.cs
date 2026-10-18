@@ -20,6 +20,7 @@ namespace FiveVibe
             new RequestIdea("Be Trevor","Switch to Trevor"),
             new RequestIdea("Answer the phone","Answer the phone"),
             new RequestIdea("Mission assistance","What missions are available?"),
+            new RequestIdea("Mission Pilot: Franklin and Lamar","Start Mission Pilot for Franklin and Lamar"),
             new RequestIdea("Rainy evening","Set rain and set the time to 22:30"),
             new RequestIdea("Golden hour","Set the time to sunset"),
             new RequestIdea("Sunny skies","Set the weather to sunny"),
