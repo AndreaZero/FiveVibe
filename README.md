@@ -12,15 +12,16 @@ FiveVibe includes a native in-game chat and a local browser companion. Requests 
 
 AI interprets text requests into validated game actions; GTA's native tasks and controls move the character. The mod does not generate images, models, textures, voices or NPC dialogue, and its release contains no AI-generated game assets. Basic local commands work without AI or an API key. The website's concept illustrations are separate from the mod download.
 
-[Website](https://fivevibe.gta-vi.it) · [Download v0.12.0 (experimental pre-release)](https://github.com/AndreaZero/FiveVibe/releases/tag/v0.12.0) · [Project status](docs/status.md) · [Publication guide and description draft](docs/publishing.md)
+[Website](https://fivevibe.gta-vi.it) · [Download v0.13.0 (experimental pre-release)](https://github.com/AndreaZero/FiveVibe/releases/tag/v0.13.0) · [Project status](docs/status.md) · [Publication guide and description draft](docs/publishing.md)
 
-**Status: experimental, v0.12.0.** Free-roam driving has been confirmed by the original user. Themed drives, favorites, vehicle radio controls, automatic driving cinema, vehicle categories and real-world time/weather are implemented and logic-tested; their native behavior still needs in-game validation. Mission Pilot implements a first full-flow attempt for **Franklin and Lamar**; no successful autonomous playthrough has yet been observed. Background gameplay depends on GTA continuing to run while unfocused.
+**Status: experimental, v0.13.0.** Free-roam driving has been confirmed by the original user. Timed drives with return, themed drives, favorites, vehicle radio controls, automatic driving cinema, vehicle categories and real-world time/weather are implemented and logic-tested; their native behavior still needs in-game validation. Mission Pilot implements a first full-flow attempt for **Franklin and Lamar**; no successful autonomous playthrough has yet been observed. Background gameplay depends on GTA continuing to run while unfocused.
 
 ## What you can do
 
 | Vibe | Example |
 | --- | --- |
 | Take a drive | “Find an empty car and cruise.” |
+| Set a duration and return | “Fai un giro di 20 minuti poi torna al punto di partenza.” |
 | Take a themed drive | “Fammi un giro sulla costa.” / “Start countryside drive.” |
 | Choose a vehicle | “Get a motorcycle.” / “Find an SUV and take a chill drive.” |
 | Go somewhere | “Drive to Sandy Shores.” / “Take me to the Kortz Center.” |
@@ -91,6 +92,18 @@ These named commands run locally in both provider modes without an API key. The 
 Starting a tour replaces current movement. **F8**, **Stop**, another destination (including a favorite) or another movement request cancels it. Radio, camera, HUD, world settings and saving/listing favorites preserve the active tour; speed changes apply to subsequent legs too. Pause suspends gameplay. Missions, cutscenes, death, character changes and script reload stop the itinerary; it does not automatically restart later. Tours start only in free roam.
 
 These are one-way regional drives ending at the final stop, without an automatic return to the start. GTA's road AI chooses the roads between approximate outdoor approach points: a coastal theme does not guarantee every road stays beside the water, and a countryside theme does not guarantee highway avoidance. There are no forced radio/weather changes, teleports, per-leg AI requests or downloadable route data. Existing stuck and per-leg travel limits apply, with an additional one-hour overall game-time budget. Traffic or an inaccessible point can stop the attempt. Both complete routes still need in-game validation; logic, command and browser tests do not establish a successful native drive.
+
+## Timed drive and return
+
+Say **“Fai un giro di 20 minuti poi torna al punto di partenza”** or **“Drive for 20 minutes then return to the starting point”**. These named commands work locally in both provider modes, without an API key. Optional AI interpretation also supports natural paraphrases. Use **1–120 whole minutes**. In the companion, enter **Minutes before return** under **Timed drive**, then click **Start timed drive & return**; the default is 20 minutes.
+
+FiveVibe captures the current protagonist's actual game position when it handles the accepted action, before searching for a car. It reuses a suitable current vehicle or finds a nearby available one. The countdown begins only when driving starts. It measures real milliseconds of the active session, independent of GTA's accelerated world clock; observed game pauses suspend the countdown. Traffic lights and ordinary traffic still count as part of the ride.
+
+After that duration, FiveVibe switches from cruising to driving back near the captured position, preserving driving/camera ownership. **Return travel takes additional time**: 20 minutes means 20 minutes before starting the return, not guaranteed arrival in 20 minutes. The HUD and companion show the countdown and return stage. Arrival uses the usual nearby street approach and braking, with completion only after the car stops. GTA chooses the roads; this does not guarantee an exact parking position or access to an off-road/interior starting point.
+
+Starting a timed drive replaces current movement and is available only in controllable free roam. Radio, camera, HUD, world settings, speed updates and favorite save/list requests preserve it. **F8**, **Stop**, another movement/destination, missions, cutscenes, death, character changes, vehicle loss or script reload cancel it, without a later automatic return. The origin and session stay in memory; they are not saved as a favorite or restored after a reload. Existing stuck/vehicle-entry limits apply, and return travel has its own 20-minute active-time limit. A blocked or failed journey returns control and does not claim success.
+
+Timed drives currently use ordinary free-roam cruising before returning; timed coastal/countryside itineraries and combined named destinations are not supported. Full native duration/pause/return validation still needs an in-game run; the automated clock, command and browser checks do not establish completed gameplay.
 
 ## Install
 

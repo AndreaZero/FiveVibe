@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.0 — Timed drives with return
+
+- Start a 1–120 minute free-roam drive followed by a return near the starting position, through English/Italian chat or the companion duration input and Start button. Canonical commands execute locally in both provider modes; AI plans use a validated duration field.
+- Capture the actual origin on the game thread before vehicle acquisition. Start a monotonic real-time countdown only when driving begins, suspend it during observed game pauses, then switch to the return route without releasing driving or camera ownership. Return travel takes extra time.
+- Show countdown/return/completion in the HUD and companion. Mark completion only after arrival and a physical stop; preserve the session through radio, camera, HUD, world settings, speed changes and favorite saving/listing.
+- Cancel on F8/Stop, replacement movement, story transitions, vehicle loss or reload. Keep origin/session in memory only, reuse stuck/entry handling and bound return travel to 20 active minutes. No teleporting, promised exact arrival time, timed themed routes or per-frame AI calls.
+- Add timer/pause/wrap/cancellation/validation checks, companion queue/UI tests and synthetic AI probes. Full native timed-drive gameplay remains unverified.
+
 ## 0.12.0 — Coastal and countryside drives
 
 - Add two four-stop themed drives: Pacific Bluffs → Chumash → Paleto Forest → Paleto Bay, and Route 68 → Sandy Shores → Grapeseed → Alamo Sea.

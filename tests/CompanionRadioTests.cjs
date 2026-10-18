@@ -20,6 +20,7 @@ async function fixture() {
   let disconnected = false;
   const state = { actor: 'Michael', status: 'Chill drive / 45 km/h', active: true, route: 'To Paleto Bay', messages: [], places: [],
     favorites: { ready: true, canUse: true, items: [] },
+    timedDrive: {active:false,canStart:true,stage:'idle',status:'Choose how long to drive before returning.',minutes:0,remainingSeconds:0},
     tour: { active: false, canStart: true, id: 'none', status: 'Choose a coastal or countryside drive.', result: 'idle', step: 0, total: 0 },
     radio: { available: true, station: 'RADIO_16_SILVERLAKE', status: 'Radio Mirror Park', stations: [
       { id: 'RADIO_16_SILVERLAKE', name: 'Radio Mirror Park' }, { id: 'RADIO_02_POP', name: 'Non-Stop-Pop FM' }
@@ -167,4 +168,45 @@ test('tour buttons disable for pause, blocked gameplay, old snapshots and discon
   assert.equal(f.elements.coastalTour.disabled, true);
   f.disconnect(); await vm.runInContext('poll()', f.context);
   assert.match(f.elements.tourState.textContent, /disconnected/);
+});
+
+test('timed button sends minutes plus return intent, preserving composer and observed state', async () => {
+  const f = await fixture(); f.elements.durationMinutes.value = '20'; f.elements.prompt.value = 'Unsent request';
+  await f.elements.timedStart.onclick();
+  assert.deepEqual(JSON.parse(f.requests.at(-1).options.body), {text:'Drive for 20 minutes then return to the starting point'});
+  assert.equal(f.requests.at(-1).url, '/api/message');
+  assert.equal(f.elements.timedStart.attributes['aria-pressed'], 'false');
+  assert.equal(f.elements.timedState.textContent, f.state.timedDrive.status);
+  assert.equal(f.elements.prompt.value, 'Unsent request');
+  assert.ok(!f.requests.some(r=>r.url==='/api/stop'));
+});
+test('invalid, fractional or missing duration does not send any movement', async () => {
+  const f = await fixture(); const count = f.requests.length;
+  for (const value of ['', '0', '-5', '1.5', '121', 'garbage']) {
+    f.elements.durationMinutes.value = value; await f.elements.timedStart.onclick();
+    assert.equal(f.requests.length, count);
+    assert.match(f.elements.notice.textContent, /1 to 120 whole minutes/);
+  }
+});
+test('countdown, return and completion use GTA snapshots without overwriting edited duration', async () => {
+  const f = await fixture(); f.elements.durationMinutes.value = '30';
+  for(const [stage,active,status] of [['cruising',true,'Timed drive / 19:30 until return'], ['returning',true,'Timed drive / returning to the starting point'], ['completed',false,'Timed drive completed. Back near the starting point.']]) {
+    Object.assign(f.state.timedDrive, {stage,active,status});
+    vm.runInContext('renderTimed('+JSON.stringify(f.state.timedDrive)+',false)', f.context);
+    assert.equal(f.elements.timedState.textContent, status);
+    assert.equal(f.elements.timedStart.attributes['aria-pressed'], String(active));
+    assert.equal(f.elements.durationMinutes.value, '30');
+  }
+});
+test('timed controls cannot start on pause, blocked gameplay, older snapshots or disconnect', async () => {
+  const f = await fixture();
+  vm.runInContext('renderTimed('+JSON.stringify(f.state.timedDrive)+',true)', f.context);
+  assert.equal(f.elements.timedStart.disabled, true); assert.equal(f.elements.durationMinutes.disabled, true);
+  const count=f.requests.length; await f.elements.timedStart.onclick(); assert.equal(f.requests.length,count);
+  f.state.timedDrive.canStart=false;
+  vm.runInContext('renderTimed('+JSON.stringify(f.state.timedDrive)+',false)', f.context);
+  assert.equal(f.elements.timedStart.disabled,true);
+  vm.runInContext('renderTimed(undefined,false)', f.context); assert.equal(f.elements.timedStart.disabled,true);
+  f.disconnect(); await vm.runInContext('poll()',f.context);
+  assert.match(f.elements.timedState.textContent,/disconnected/); assert.equal(f.elements.timedStart.disabled,true);
 });

@@ -22,13 +22,14 @@ namespace FiveVibe
         public string Clock { get; set; }
         public string VehicleType { get; set; }
         public string Station { get; set; }
+        public int DurationMinutes { get; set; }
 
         public CommandPlan() { Pace = "walk"; Target = "nearest"; DistanceMeters = 25; WeatherType="none"; Hour=-1; Clock="unchanged"; VehicleType="any"; Station="none"; }
 
         public static readonly string[] Actions = { "cruise", "waypoint", "place", "speed", "stop", "leave", "help", "say",
             "walk_wander", "walk_forward", "walk_waypoint", "walk_place", "approach_npc", "greet_npc", "follow_npc",
             "switch_character", "phone_open", "phone_answer", "phone_hangup", "interact", "mission", "mission_status",
-            "world_settings", "hud_show", "hud_hide", "hud_toggle", "mission_auto", "vehicle", "radio_set", "radio_off", "tour_coast", "tour_countryside",
+            "world_settings", "hud_show", "hud_hide", "hud_toggle", "mission_auto", "vehicle", "radio_set", "radio_off", "tour_coast", "tour_countryside", "timed_drive",
             "realtime_clock", "realtime_weather", "realtime_both", "realtime_off", "realtime_clock_off", "realtime_weather_off", "realtime_status", "camera_auto_on", "camera_auto_off",
             "camera_gameplay", "camera_first", "camera_third", "camera_cinema", "camera_native", "camera_cycle", "camera_next", "camera_bars", "camera_bars_on", "camera_bars_off" };
         public static readonly string[] WeatherTypes={"none","auto","clear","sunny","clouds","fog","overcast","rain","thunder","smog","clearing","snow","blizzard","christmas"};
@@ -44,7 +45,7 @@ namespace FiveVibe
                 throw new ArgumentException("The plan contains an unsupported action.");
             if (SpeedKmh < 15 || SpeedKmh > 90)
                 throw new ArgumentException("Speed must be between 15 and 90 km/h.");
-            if(!VehicleSelection.Types.Contains(VehicleType) || (VehicleType!="any" && Action!="vehicle" && Action!="cruise" && Action!="place" && Action!="waypoint" && Action!="mission" && !TourCatalog.IsStartAction(Action)))
+            if(!VehicleSelection.Types.Contains(VehicleType) || (VehicleType!="any" && Action!="vehicle" && Action!="cruise" && Action!="place" && Action!="waypoint" && Action!="mission" && Action!="timed_drive" && !TourCatalog.IsStartAction(Action)))
                 throw new ArgumentException("Vehicle selection does not match the action.");
             if ((Action == "place" || Action == "walk_place") != (Place != "none"))
                 throw new ArgumentException("The destination does not match this action.");
@@ -56,6 +57,8 @@ namespace FiveVibe
                 throw new ArgumentException("Mission Pilot uses the mission's own protagonist.");
             if (CameraCommands.IsCamera(Action) && Actor != "current") throw new ArgumentException("Camera controls use the current protagonist.");
             if(TourCatalog.IsStartAction(Action) && Actor!="current")throw new ArgumentException("Themed drives use the current protagonist.");
+            if(Action=="timed_drive" ? Actor!="current" || DurationMinutes<1 || DurationMinutes>TimedDriveSession.MaximumMinutes : DurationMinutes!=0)
+                throw new ArgumentException("Timed drives require the current protagonist and 1 to 120 whole minutes; other actions use DurationMinutes=0.");
             if (!RadioCatalog.Ids.Contains(Station) || ((Action=="radio_set") != (Station!="none")) || (RadioCommands.IsRadio(Action) && Actor!="current"))
                 throw new ArgumentException("Radio station does not match the action or current protagonist.");
             if (Action.EndsWith("_npc", StringComparison.Ordinal) && Target != "nearest" && Target != "ahead" && Target != "current")
@@ -116,6 +119,8 @@ namespace FiveVibe
             int speed = Math.Max(15, Math.Min(90, currentSpeed));
             string actor = Has(text, "michael|micheal") ? "michael" : Has(text, "franklin") ? "franklin" : Has(text, "trevor") ? "trevor" : "current";
             if (IsImmediateStop(text)) return CommandPlan.Create("stop", "current", speed);
+            CommandPlan timedPlan;
+            if(TimedDriveCommands.TryParse(text,speed,out timedPlan))return timedPlan;
             CommandPlan radioPlan;
             if (RadioCommands.TryParse(text,out radioPlan)) return radioPlan;
             CommandPlan tourPlan;

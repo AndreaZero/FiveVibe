@@ -46,6 +46,8 @@ internal static class CompanionTests
                 Check(Request(client,"/api/message",token,"{\"text\":\"Drive to Paleto Bay\"}").StatusCode==HttpStatusCode.Accepted,"Request queued");
                 CompanionCommand command;
                 Check(server.TryTake(out command) && command.Text=="Drive to Paleto Bay" && !command.Stop,"Game thread receives exact text");
+                Check(Request(client,"/api/message",token,"{\"text\":\"Drive for 20 minutes then return to the starting point\"}").StatusCode==HttpStatusCode.Accepted,"Timed drive button request queued");
+                Check(server.TryTake(out command) && command.Text=="Drive for 20 minutes then return to the starting point" && !command.Stop,"Timed drive carries duration and return intent, without browser coordinates");
                 Check(Request(client,"/api/message",token,"{\"text\":\"\"}").StatusCode==HttpStatusCode.BadRequest,"Empty request rejected");
                 Check(Request(client,"/api/message",token,"{\"text\":\""+new string('a',501)+"\"}").StatusCode==HttpStatusCode.BadRequest,"Oversized prompt rejected");
                 for(int i=0;i<8;i++) Request(client,"/api/message",token,"{\"text\":\"hello\"}");

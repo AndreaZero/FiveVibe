@@ -15,6 +15,18 @@ internal static class AiConnectionCheck
             if (!config.HasApiKey) { Console.WriteLine("No API key configured in the env file. No request sent."); return 2; }
             using (var planner = new OpenAiPlanner(config.ApiKey, config.Model))
             {
+                if(args.Length==2 && args[1]=="--timed")
+                {
+                    string[] prompts={"Vorrei guidare per venti minuti e poi tornare dove sono partito.","Please cruise for five minutes and bring me back to where I started.","Drive for 0 minutes then return to the starting point.","Take a chill drive."};
+                    string[] actions={"timed_drive","timed_drive","say","cruise"};int[] durations={20,5,0,0};
+                    for(int i=0;i<prompts.Length;i++)
+                    {
+                        var result=planner.PlanAsync(prompts[i],"SYNTHETIC TEST: character=michael; driving=idle; in_vehicle=true; mission_active=false; target_speed_kmh=45",new string[0],CancellationToken.None).GetAwaiter().GetResult();
+                        bool ok=result.Action==actions[i] && result.DurationMinutes==durations[i] && result.Actor=="current";
+                        Console.WriteLine("Timed case "+(i+1)+": "+result.Action+" / "+result.DurationMinutes+" minutes / "+(ok?"OK":"UNEXPECTED"));if(!ok)return 3;
+                    }
+                    Console.WriteLine("Timed-drive interpretation passed. No action sent to GTA.");return 0;
+                }
                 if(args.Length==2 && args[1]=="--tours")
                 {
                     string[] prompts={"Mi piacerebbe fare un giro panoramico lungo la costa, senza una singola destinazione.","Take me on a countryside tour through rural stops.","Drive to Chumash on the coast.","Start a mountain tour, if that theme is implemented."};
