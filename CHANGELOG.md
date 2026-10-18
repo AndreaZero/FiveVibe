@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.0 — Radio for the ride
+
+- Select 19 standard Story Mode radio stations by name in English/Italian chat, or turn the vehicle radio off. Named commands bypass OpenAI in both provider modes.
+- Add companion station buttons, Radio off, observed station highlighting and disabled states for pause, disconnection, on-foot play and unavailable radios.
+- Dispatch radio actions before movement cancellation. Preserve driving, route, speed, camera, Mission Pilot and pending plans; distinguish Stop radio from takeover.
+- Validate station IDs in local/AI plans; reject unknown, negated and combined local radio requests without silently changing stations. Keep native radio failures inside the audio boundary.
+- Retune only the current vehicle once, without unlocking stations, forcing radios, persistent overrides or bundled music. Self Radio uses the player's GTA configuration.
+- Add radio command/execution/schema tests, authenticated companion queue regressions, dependency-free companion interaction tests and an optional synthetic live AI probe. Native in-game audio validation remains pending.
+
 ## 0.9.0 — Automatic cinema and real-world vibes
 
 - Enable the cinema director automatically during AI driving, including Mission Pilot, and restore gameplay on drive completion or F8/Stop. Respect manual camera choices for the current drive.

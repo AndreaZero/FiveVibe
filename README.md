@@ -10,7 +10,11 @@ An open-source AI companion for GTA V Enhanced Story Mode. Give your character a
 
 FiveVibe includes a native in-game chat and a local browser companion. Requests can be written in English or Italian; the interface and assistant replies are in English.
 
-**Status: experimental, v0.9.0.** Free-roam driving has been confirmed by the original user. Automatic driving cinema, vehicle categories and real-world time/weather are implemented and logic-tested; their native behavior still needs in-game validation. Mission Pilot implements a first full-flow attempt for **Franklin and Lamar**; no successful autonomous playthrough has yet been observed. Background gameplay depends on GTA continuing to run while unfocused.
+AI interprets text requests into validated game actions; GTA's native tasks and controls move the character. The mod does not generate images, models, textures, voices or NPC dialogue, and its release contains no AI-generated game assets. Basic local commands work without AI or an API key. The website's concept illustrations are separate from the mod download.
+
+[Website](https://fivevibe.gta-vi.it) · [Download v0.10.0 (experimental pre-release)](https://github.com/AndreaZero/FiveVibe/releases/tag/v0.10.0) · [Project status](docs/status.md) · [Publication guide and description draft](docs/publishing.md)
+
+**Status: experimental, v0.10.0.** Free-roam driving has been confirmed by the original user. Vehicle radio controls, automatic driving cinema, vehicle categories and real-world time/weather are implemented and logic-tested; their native behavior still needs in-game validation. Mission Pilot implements a first full-flow attempt for **Franklin and Lamar**; no successful autonomous playthrough has yet been observed. Background gameplay depends on GTA continuing to run while unfocused.
 
 ## What you can do
 
@@ -28,6 +32,7 @@ FiveVibe includes a native in-game chat and a local browser companion. Requests 
 | Get mission assistance | “What missions are available?” / “Go to Lester's mission marker.” |
 | Try Mission Pilot | “Start Mission Pilot for Franklin and Lamar.” |
 | Watch the ride | “Enable cinema camera.” / “Switch to first person.” |
+| Choose the soundtrack | “Play Radio Mirror Park.” / “Spegni la radio.” |
 | Match real life | “Enable real time and weather.” |
 | Take over | Press **F8**, click **Stop & take over**, or say “stop.” |
 
@@ -156,6 +161,16 @@ Weather refreshes every 15 minutes and maps conditions to GTA presets: clear, cl
 
 **F9** shows/hides the on-screen task panel and its closed-chat hints, without stopping autonomy. The HUD tab, browser button and requests such as “Hide the task HUD” do the same. F8 still takes over. This preference is saved per Windows user in %LOCALAPPDATA%\FiveVibe\preferences.json. The INI supports [HUD] ShowTaskHud and ToggleKey as defaults; a saved preference takes precedence for visibility.
 
+## Radio without interrupting the ride
+
+Say **“Metti Radio Mirror Park”**, **“Play Los Santos Rock Radio”**, **“Play Non-Stop-Pop FM”**, **“Spegni la radio”** or **“Radio off”**. These named requests work locally in both Local and OpenAI modes, without an API call. More flexible wording can use the AI planner with the same validated station catalog.
+
+The companion's **Radio** section has a button for each of 19 standard Story Mode stations and a **Radio off** button. It shows the station actually reported by GTA, rather than assuming a queued request succeeded. Controls are disabled when disconnected, paused, on foot or when the current vehicle has no available radio. **Self Radio** requires your own tracks configured in GTA.
+
+Radio commands act on the current vehicle and preserve the drive, destination, speed, camera, Mission Pilot and any pending movement plan. **“Stop radio”** means radio off; **“Stop” / F8 / companion Stop** still takes over. Unknown station names do not silently select another station. Send a new destination separately from a radio request.
+
+No music is downloaded, generated or included. FiveVibe does not unlock stations, force radios onto unsupported vehicles, start mobile radio or keep overriding manual changes. Scripted scenes can control audio; retuning is a one-shot request, not a persistent preference for future vehicles. Radio behavior has passed automated and simulated browser checks but still needs an actual in-game audio test.
+
 ## Watch the ride
 
 The cinema director starts automatically when AI driving begins, including Mission Pilot driving, and restores the previous gameplay view when that drive ends or you take over with **F8 / Stop**. Vehicle searching and entry keep the gameplay camera. Toggle **Auto cinema while AI drives** in **F7 > Camera** or the companion, or say “Disable automatic cinema camera”.
@@ -222,7 +237,7 @@ In Windows PowerShell:
     .\scripts\Build.ps1
     .\tests\Test-ChatUpdate.ps1
 
-The build uses Windows' .NET Framework compiler and a hash-verified upstream SHVDNE SDK. No NuGet restore or Node toolchain is required. Output: dist\FiveVibe.
+The build uses Windows' .NET Framework compiler and a hash-verified upstream SHVDNE SDK. No NuGet restore or Node toolchain is required. When Node.js is available, the build also runs dependency-free companion radio interaction tests. Output: dist\FiveVibe.
 
 Tests cover local parsing, destination catalogs, custom-file validation, OpenAI schemas and errors, cancellation, HUD layout, the companion's HTTP interface and update/migration behavior. They do not substitute for in-game testing. Optional live API probes use synthetic state and never command GTA:
 
@@ -232,6 +247,7 @@ Tests cover local parsing, destination catalogs, custom-file validation, OpenAI 
     .\build\AiConnectionCheck.exe .\.env --mission
     .\build\AiConnectionCheck.exe .\.env --camera
     .\build\AiConnectionCheck.exe .\.env --ambient
+    .\build\AiConnectionCheck.exe .\.env --radio
     .\build\RealWeatherCheck.exe
 
 The last probe queries the public reference city Rome, Italy, independently of player location or saved sync settings. Ambient checks also cover auto-camera ownership, vehicle filters, weather mapping, opt-in requests and stale location results.

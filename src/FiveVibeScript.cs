@@ -54,6 +54,7 @@ namespace FiveVibe
         private readonly SpectatorCamera spectatorCamera;
         private readonly Keys cameraKey;
         private readonly RealWorldService realWorld;
+        private readonly VehicleRadio vehicleRadio=new VehicleRadio();
         private bool realClockApplied, realWeatherApplied;
         private string appliedRealWeather="";
         private long lastClockSecond=-1;
@@ -130,6 +131,8 @@ namespace FiveVibe
             chat.Add(true, prompt);
             if (LocalPlanner.IsImmediateStop(prompt)) { BrakeOrRelease(); return; }
             if (Function.Call<bool>(Hash.NETWORK_IS_SESSION_ACTIVE)) { chat.Add(false, "FiveVibe runs in Story Mode."); return; }
+            CommandPlan radioPlan;
+            if(RadioCommands.TryParse(prompt,out radioPlan)) { Execute(radioPlan); return; }
             var directPilot = LocalPlanner.Parse(prompt, speedKmh);
             if(CameraCommands.IsCamera(directPilot.Action) || directPilot.Action.StartsWith("realtime_",StringComparison.Ordinal)) { Execute(directPilot); return; }
             CancelPlanning();
@@ -269,6 +272,7 @@ namespace FiveVibe
                 taskHudVisible=chat.ShowDrivingHud, clockFrozen=GameClock.IsPaused && !realClockApplied,
                 gameTime=ClockLabel(), weather=World.Weather.ToString(),
                 camera=new { mode=spectatorCamera.ModeName, status=spectatorCamera.Status, letterbox=spectatorCamera.Letterbox, cycleKey=cameraKey.ToString(), autoDriving=spectatorCamera.AutoCinema },
+                radio=vehicleRadio.Snapshot(),
                 realWorld=new { clock=realWorld.ClockEnabled, weather=realWorld.WeatherEnabled, location=realWorld.LocationName, status=realWorld.Status, paused=Function.Call<bool>(Hash.GET_MISSION_FLAG) },
                 missionPilot = new { active=missionPilot.Active, joined=missionPilot.Joined, stage=missionPilot.Status, objective=missionPilot.Objective, label=missionPilot.ObjectiveKey, result=missionPilot.Result },
                 messages=chat.Messages.Select(m => new { user=m.User, text=m.Text }).ToArray(),
@@ -318,6 +322,7 @@ namespace FiveVibe
             plan.Validate();
             if (plan.Action == "stop") { BrakeOrRelease(); return; }
             if (plan.Action == "say") { chat.Add(false, plan.Message); return; }
+            if(RadioCommands.IsRadio(plan.Action)) { chat.Add(false,RadioControl.Execute(plan,vehicleRadio)); return; }
             if(CameraCommands.IsCamera(plan.Action)) { spectatorCamera.Execute(plan.Action); return; }
             if(plan.Action.StartsWith("realtime_",StringComparison.Ordinal))
             {
@@ -333,7 +338,7 @@ namespace FiveVibe
             if(plan.Action=="world_settings") { ApplyWorldSettings(plan); return; }
             if (plan.Action == "help")
             {
-                chat.Add(false, "Walk, run, greet or follow nearby people, switch characters, use the phone, drive to named places or reach a mission marker. Choose first person or cinema in CAMERA; "+cameraKey+" cycles views. F8 takes over. " +
+                chat.Add(false, "Walk, run, greet or follow nearby people, switch characters, use the phone, drive to named places or reach a mission marker. Say 'Play Radio Mirror Park' or 'Radio off' without stopping. Choose first person or cinema in CAMERA; "+cameraKey+" cycles views. F8 takes over. " +
                     (planner == null ? "Local mode: basic commands only." : "OpenAI interprets your requests."));
                 return;
             }

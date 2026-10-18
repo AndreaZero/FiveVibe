@@ -15,6 +15,20 @@ internal static class AiConnectionCheck
             if (!config.HasApiKey) { Console.WriteLine("No API key configured in the env file. No request sent."); return 2; }
             using (var planner = new OpenAiPlanner(config.ApiKey, config.Model))
             {
+                if(args.Length==2 && args[1]=="--radio")
+                {
+                    string[] prompts={"Mi metti Radio Mirror Park mentre continui il giro?","I'd like to listen to Los Santos Rock Radio.","Spegni la radio, ma continua a guidare.","Play Non-Stop-Pop FM.","Play Radio Atlantis, the fictional station."};
+                    string[] actions={"radio_set","radio_set","radio_off","radio_set","say"};
+                    string[] stations={"RADIO_16_SILVERLAKE","RADIO_01_CLASS_ROCK","none","RADIO_02_POP","none"};
+                    for(int i=0;i<prompts.Length;i++)
+                    {
+                        var result=planner.PlanAsync(prompts[i],"SYNTHETIC TEST: character=michael; driving=driving; in_vehicle=true; mission_active=false",new string[0],CancellationToken.None).GetAwaiter().GetResult();
+                        bool ok=result.Action==actions[i] && result.Station==stations[i] && result.Actor=="current";
+                        Console.WriteLine("Radio case "+(i+1)+": "+result.Action+" / "+result.Station+" / "+(ok?"OK":"UNEXPECTED"));
+                        if(!ok)return 3;
+                    }
+                    Console.WriteLine("Radio interpretation passed. No action sent to GTA.");return 0;
+                }
                 if(args.Length==2 && args[1]=="--ambient")
                 {
                     string[] prompts={"andiamo a ls custom","prendi una moto","prendi una jeep e facciamo un giro","Portami a LS Customs con un SUV","Sincronizza meteo e ora con quelli reali","Disattiva solo il meteo reale"};

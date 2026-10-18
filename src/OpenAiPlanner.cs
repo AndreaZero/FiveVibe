@@ -50,9 +50,10 @@ namespace FiveVibe
                         { "Minute", new { type="integer", minimum=0, maximum=59 } },
                         { "Clock", EnumSchema(CommandPlan.ClockModes) },
                         { "VehicleType", EnumSchema(VehicleSelection.Types) },
+                        { "Station", EnumSchema(RadioCatalog.Ids) },
                         { "Message", new { type = "string", description = "Brief English reply. Never claim an action has already succeeded." } }
                     } },
-                    { "required", new[] { "Action", "Actor", "Place", "SpeedKmh", "Pace", "Target", "DistanceMeters", "WeatherType", "Hour", "Minute", "Clock", "VehicleType", "Message" } }
+                    { "required", new[] { "Action", "Actor", "Place", "SpeedKmh", "Pace", "Target", "DistanceMeters", "WeatherType", "Hour", "Minute", "Clock", "VehicleType", "Station", "Message" } }
                 } }
             };
             var body = new Dictionary<string, object> {
@@ -63,6 +64,7 @@ namespace FiveVibe
                 { "tools", new object[] { tool } }, { "parallel_tool_calls", false },
                 { "tool_choice", new { type = "function", name = "plan_game_action" } }
             };
+            body["instructions"]="Radio actions never change movement, route, camera or Mission Pilot. radio_set selects a named vehicle radio station using its catalog Station ID; radio_off turns it off with Station=none. Use Actor=current, Place=none, Target=nearest, VehicleType=any and neutral world settings. Station=none for ALL non-radio_set actions. Never invent a station, play a song or claim unavailable stations work. Ask for a supported station if the name is unknown or ambiguous. Radio catalog: "+RadioCatalog.Describe()+".\n"+body["instructions"];
             using (var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/responses"))
             {
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);

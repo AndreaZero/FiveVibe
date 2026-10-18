@@ -63,6 +63,10 @@ internal static class CompanionTests
                 Check(server.TryTake(out command) && command.Location && command.City==null && Math.Abs(command.Latitude-41.9)<.001,"Game receives location without a chat message");
                 Check(Request(client,"/api/location",token,"{\"city\":\"Rome, Italy\"}").StatusCode==HttpStatusCode.Accepted,"City query accepted");
                 Check(server.TryTake(out command) && command.Location && command.City=="Rome, Italy","City delivered only to local game queue");
+                Check(Request(client,"/api/message",token,"{\"text\":\"Play Radio Mirror Park\"}").StatusCode==HttpStatusCode.Accepted,"Radio station button request accepted");
+                Check(server.TryTake(out command) && command.Text=="Play Radio Mirror Park" && !command.Stop,"Radio selection is a text request, not takeover");
+                Check(Request(client,"/api/message",token,"{\"text\":\"Radio off\"}").StatusCode==HttpStatusCode.Accepted,"Radio off button request accepted");
+                Check(server.TryTake(out command) && command.Text=="Radio off" && !command.Stop,"Radio off does not become companion Stop");
             }
             Console.WriteLine(passed+" companion checks passed."); return 0;
         }
