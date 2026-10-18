@@ -20,6 +20,7 @@ async function fixture() {
   let disconnected = false;
   const state = { actor: 'Michael', status: 'Chill drive / 45 km/h', active: true, route: 'To Paleto Bay', messages: [], places: [],
     favorites: { ready: true, canUse: true, items: [] },
+    tour: { active: false, canStart: true, id: 'none', status: 'Choose a coastal or countryside drive.', result: 'idle', step: 0, total: 0 },
     radio: { available: true, station: 'RADIO_16_SILVERLAKE', status: 'Radio Mirror Park', stations: [
       { id: 'RADIO_16_SILVERLAKE', name: 'Radio Mirror Park' }, { id: 'RADIO_02_POP', name: 'Non-Stop-Pop FM' }
     ] } };
@@ -128,4 +129,42 @@ test('blank favorite name is rejected before sending a request', async () => {
   f.elements.favoriteName.value = '   '; await f.elements.saveFavorite.onclick();
   assert.equal(f.requests.length, count);
   assert.match(f.elements.notice.textContent, /Enter a name/);
+});
+test('theme buttons send a single named request without optimistic progress', async () => {
+  const f = await fixture();
+  await f.elements.coastalTour.onclick();
+  assert.deepEqual(JSON.parse(f.requests.at(-1).options.body), { text: 'Start coastal drive' });
+  assert.equal(f.requests.at(-1).url, '/api/message');
+  assert.equal(f.elements.coastalTour.attributes['aria-pressed'], 'false');
+  assert.equal(f.elements.route.textContent, 'To Paleto Bay');
+  await f.elements.countrysideTour.onclick();
+  assert.deepEqual(JSON.parse(f.requests.at(-1).options.body), { text: 'Start countryside drive' });
+  assert.ok(!f.requests.some(r => r.url === '/api/stop'));
+});
+test('observed tour progress and completion are reflected without changing the composer', async () => {
+  const f = await fixture(); f.elements.prompt.value = 'Unsent request';
+  Object.assign(f.state.tour, { active: true, id: 'coast', status: 'Coastal drive / 2 of 4 / Chumash', step: 2, total: 4 });
+  vm.runInContext('renderTour(' + JSON.stringify(f.state.tour) + ',false)', f.context);
+  assert.equal(f.elements.coastalTour.attributes['aria-pressed'], 'true');
+  assert.equal(f.elements.countrysideTour.attributes['aria-pressed'], 'false');
+  assert.equal(f.elements.tourState.textContent, 'Coastal drive / 2 of 4 / Chumash');
+  Object.assign(f.state.tour, { active: false, status: 'Coastal drive completed.', result: 'completed' });
+  vm.runInContext('renderTour(' + JSON.stringify(f.state.tour) + ',false)', f.context);
+  assert.equal(f.elements.coastalTour.attributes['aria-pressed'], 'false');
+  assert.equal(f.elements.tourState.textContent, 'Coastal drive completed.');
+  assert.equal(f.elements.prompt.value, 'Unsent request');
+});
+test('tour buttons disable for pause, blocked gameplay, old snapshots and disconnection', async () => {
+  const f = await fixture();
+  vm.runInContext('renderTour(' + JSON.stringify(f.state.tour) + ',true)', f.context);
+  assert.equal(f.elements.coastalTour.disabled, true);
+  const count = f.requests.length; await f.elements.coastalTour.onclick();
+  assert.equal(f.requests.length, count);
+  f.state.tour.canStart = false;
+  vm.runInContext('renderTour(' + JSON.stringify(f.state.tour) + ',false)', f.context);
+  assert.equal(f.elements.countrysideTour.disabled, true);
+  vm.runInContext('renderTour(undefined,false)', f.context);
+  assert.equal(f.elements.coastalTour.disabled, true);
+  f.disconnect(); await vm.runInContext('poll()', f.context);
+  assert.match(f.elements.tourState.textContent, /disconnected/);
 });

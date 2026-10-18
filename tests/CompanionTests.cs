@@ -86,6 +86,11 @@ internal static class CompanionTests
                 Check((int)Request(client,"/api/favorites",token,"{\"action\":\"save\",\"name\":\"Overflow\"}").StatusCode==429,"Favorite commands share bounded queue");
                 Request(client,"/api/stop",token,"{}");
                 Check(server.TryTake(out command) && command.Stop && !server.TryTake(out command),"Stop discards pending favorite saves and travel");
+                foreach(string text in new[]{"Start coastal drive","Start countryside drive"})
+                {
+                    Check(Request(client,"/api/message",token,"{\"text\":\""+text+"\"}").StatusCode==HttpStatusCode.Accepted,"Themed drive button queued: "+text);
+                    Check(server.TryTake(out command) && command.Text==text && !command.Stop,"Tour selection stays a named request: "+text);
+                }
             }
             Console.WriteLine(passed+" companion checks passed."); return 0;
         }

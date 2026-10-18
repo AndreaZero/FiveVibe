@@ -56,6 +56,7 @@ namespace FiveVibe
         private readonly RealWorldService realWorld;
         private readonly VehicleRadio vehicleRadio=new VehicleRadio();
         private readonly FavoriteStore favorites;
+        private readonly TourSession tour=new TourSession();
         private bool realClockApplied, realWeatherApplied;
         private string appliedRealWeather="";
         private long lastClockSecond=-1;
@@ -137,6 +138,8 @@ namespace FiveVibe
             if (Function.Call<bool>(Hash.NETWORK_IS_SESSION_ACTIVE)) { chat.Add(false, "FiveVibe runs in Story Mode."); return; }
             FavoriteRequest favoriteRequest;
             if(FavoriteCommands.TryParse(prompt,favorites,out favoriteRequest)) { HandleFavorite(favoriteRequest,false); return; }
+            CommandPlan tourPlan;
+            if(TourCommands.TryParse(prompt,speedKmh,out tourPlan)) {Execute(tourPlan);return;}
             CommandPlan radioPlan;
             if(RadioCommands.TryParse(prompt,out radioPlan)) { Execute(radioPlan); return; }
             var directPilot = LocalPlanner.Parse(prompt, speedKmh);
@@ -154,6 +157,7 @@ namespace FiveVibe
                 ActorName(ped), phase, speedKmh, ped.IsInVehicle(), ped.Position.X, ped.Position.Y, ped.Position.Z);
             context += worldActions.Context();
             context += missionPilot.Context();
+            context += "; themed_tour="+tour.Status;
             context += "; spectator_camera="+spectatorCamera.ModeName+"; camera_status="+spectatorCamera.Status;
             context+="; task_hud_visible="+chat.ShowDrivingHud+"; clock_paused="+GameClock.IsPaused+"; game_time="+ClockLabel()+"; weather="+World.Weather;
             string[] history = chat.Messages.Skip(Math.Max(0, chat.Messages.Count - 10)).Select(m => (m.User ? "utente: " : "mod: ") + m.Text).ToArray();
@@ -243,7 +247,7 @@ namespace FiveVibe
                 chat.ClockFrozen=GameClock.IsPaused && !realClockApplied;
                 var displayedCar = missionPilot.Active ? Game.Player.Character.CurrentVehicle : vehicle;
                 chat.CurrentSpeedKmh = displayedCar != null && displayedCar.Exists() ? (int)Math.Round(displayedCar.Speed * 3.6f) : 0;
-                chat.Route = missionPilot.Active ? "Franklin and Lamar / " + missionPilot.Objective : worldActions.Active ? worldActions.GoalLabel : hasDestination && drivingPlan != null ? "To " + destinationLabel : "Free roam";
+                chat.Route = missionPilot.Active ? "Franklin and Lamar / " + missionPilot.Objective : worldActions.Active ? worldActions.GoalLabel : tour.Active ? tour.Status : hasDestination && drivingPlan != null ? "To " + destinationLabel : "Free roam";
                 string clickedCommand = chat.Draw(openKey.ToString(), takeoverKey.ToString());
                 if (clickedCommand != null) Submit(clickedCommand);
                 var uiPlan=chat.TakeUiPlan();
@@ -281,6 +285,7 @@ namespace FiveVibe
                 gameTime=ClockLabel(), weather=World.Weather.ToString(),
                 camera=new { mode=spectatorCamera.ModeName, status=spectatorCamera.Status, letterbox=spectatorCamera.Letterbox, cycleKey=cameraKey.ToString(), autoDriving=spectatorCamera.AutoCinema },
                 radio=vehicleRadio.Snapshot(),
+                tour=new {active=tour.Active,id=tour.Profile==null?"none":tour.Profile.Id,status=tour.Status,result=tour.Result,step=tour.Active?tour.Index+1:0,total=tour.Profile==null?0:tour.Profile.Stops.Length,canStart=CanUseFavorites() && !Function.Call<bool>(Hash.GET_MISSION_FLAG)},
                 favorites=new {ready=favorites.Ready,canUse=favorites.Ready && CanUseFavorites(),items=favorites.All.OrderBy(f=>f.Name).Select(f=>new {id=f.Id,name=f.Name}).ToArray()},
                 realWorld=new { clock=realWorld.ClockEnabled, weather=realWorld.WeatherEnabled, location=realWorld.LocationName, status=realWorld.Status, paused=Function.Call<bool>(Hash.GET_MISSION_FLAG) },
                 missionPilot = new { active=missionPilot.Active, joined=missionPilot.Joined, stage=missionPilot.Status, objective=missionPilot.Objective, label=missionPilot.ObjectiveKey, result=missionPilot.Result },
@@ -369,6 +374,11 @@ namespace FiveVibe
             plan.Validate();
             if (plan.Action == "stop") { BrakeOrRelease(); return; }
             if (plan.Action == "say") { chat.Add(false, plan.Message); return; }
+            if(TourCatalog.IsStartAction(plan.Action))
+            {
+                if(!CanUseFavorites() || Function.Call<bool>(Hash.GET_MISSION_FLAG)) {chat.Add(false,"Themed drives start in free roam after GTA returns control. Your active action is unchanged.");return;}
+                CancelPlanning();
+            }
             if(RadioCommands.IsRadio(plan.Action)) { chat.Add(false,RadioControl.Execute(plan,vehicleRadio)); return; }
             if(CameraCommands.IsCamera(plan.Action)) { spectatorCamera.Execute(plan.Action); return; }
             if(plan.Action.StartsWith("realtime_",StringComparison.Ordinal))
@@ -443,7 +453,8 @@ namespace FiveVibe
                 return;
             }
             Vector3 target = Vector3.Zero;
-            bool useDestination = plan.Action == "waypoint" || plan.Action == "place" || plan.Action == "mission";
+            bool startingTour=TourCatalog.IsStartAction(plan.Action);
+            bool useDestination = plan.Action == "waypoint" || plan.Action == "place" || plan.Action == "mission" || startingTour;
             if (plan.Action == "waypoint")
             {
                 int blip = Function.Call<int>(Hash.GET_FIRST_BLIP_INFO_ID, 8);
@@ -451,9 +462,14 @@ namespace FiveVibe
                 target = Function.Call<Vector3>(Hash.GET_BLIP_INFO_ID_COORD, blip);
                 destinationLabel = "the waypoint";
             }
-            else if (plan.Action == "place")
+            else if (plan.Action == "place" || startingTour)
             {
-                if(plan.Place=="ls_customs")
+                if(startingTour)
+                {
+                    string first=TourCatalog.ForAction(plan.Action).Stops[0];
+                    target=PlacePosition(first);destinationLabel=PlaceLabel(first);
+                }
+                else if(plan.Place=="ls_customs")
                 {
                     if(!TryCustoms(out target,out destinationLabel)) { chat.Add(false,"No available Los Santos Customs map marker was detected. Choose a specific Customs branch in Places or unlock the shop in the story."); return; }
                 }
@@ -476,6 +492,7 @@ namespace FiveVibe
 
             ReleaseControl();
             worldActions.Cancel();
+            if(startingTour)tour.Start(plan.Action,Game.GameTime);
             driver = ped;
             speedKmh = plan.SpeedKmh;
             drivingPlan = plan;
@@ -595,12 +612,13 @@ namespace FiveVibe
             phase = "driving";
             phaseStarted = lastMoveTime = Game.GameTime;
             lastPosition = vehicle.Position;
-            chat.Add(false, hasDestination ? "Driving to " + destinationLabel + "." : "Chill drive started. Close chat and enjoy the ride.");
+            chat.Add(false, tour.Active ? tour.Status+". F8 takes over." : hasDestination ? "Driving to " + destinationLabel + "." : "Chill drive started. Close chat and enjoy the ride.");
         }
 
         private void UpdateDriving()
         {
             if (phase == "idle") return;
+            if(tour.Expired(Game.GameTime)) {Stop("Themed drive time limit reached. You have control.");return;}
             if (driver == null || !driver.Exists() || driver.Handle != Game.Player.Character.Handle || driver.IsDead)
             { Stop("Character changed: autonomy stopped."); return; }
             if (vehicle == null || !vehicle.Exists() || !vehicle.IsDriveable)
@@ -628,16 +646,23 @@ namespace FiveVibe
             { Stop("You are no longer driving: autonomy stopped."); return; }
             if (phase == "braking")
             {
-                if (vehicle.Speed < .8f) { string message = brakingMessage; ReleaseControl(); chat.Add(false, message); }
+                if (vehicle.Speed < .8f) { string message = brakingMessage; tour.Complete(); ReleaseControl(); chat.Add(false, message); }
                 else if (Game.GameTime - phaseStarted > 9000) Stop("You are near the destination. You have control.");
                 return;
             }
             if (hasDestination && vehicle.Position.DistanceTo(destination) < 22f)
             {
+                if(tour.Active && tour.ReachStop())
+                {
+                    destination=PlacePosition(tour.CurrentPlace);destinationLabel=PlaceLabel(tour.CurrentPlace);
+                    var roadPoint=World.GetNextPositionOnStreet(destination);
+                    if(roadPoint!=Vector3.Zero && roadPoint.DistanceTo(destination)<150f)destination=roadPoint;
+                    StartDriving();return;
+                }
                 Function.Call(Hash.TASK_VEHICLE_TEMP_ACTION, driver.Handle, vehicle.Handle, 27, 9000);
                 phase = "braking";
                 phaseStarted = Game.GameTime;
-                brakingMessage = "Destination reached. You have control.";
+                brakingMessage = tour.Active ? tour.Profile.Name+" completed. You have control." : "Destination reached. You have control.";
                 return;
             }
             if (vehicle.Position.DistanceTo(lastPosition) > 8f) { lastPosition = vehicle.Position; lastMoveTime = Game.GameTime; }
@@ -658,6 +683,7 @@ namespace FiveVibe
 
         private void BrakeOrRelease()
         {
+            tour.Cancel();
             CancelPlanning();
             spectatorCamera.Reset();
             missionPilot.Cancel();
@@ -684,6 +710,7 @@ namespace FiveVibe
 
         private void ReleaseControl(bool clearOwnedTasks = true)
         {
+            tour.Cancel();
             // Controls are disabled for one frame only, so even an unload cannot leave a
             // permanent SET_PLAYER_CONTROL(false) behind. Clear only tasks owned by this mod.
             if (clearOwnedTasks && phase != "idle" && driver != null && driver.Exists() && driver.Handle == Game.Player.Character.Handle)

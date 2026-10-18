@@ -12,15 +12,16 @@ FiveVibe includes a native in-game chat and a local browser companion. Requests 
 
 AI interprets text requests into validated game actions; GTA's native tasks and controls move the character. The mod does not generate images, models, textures, voices or NPC dialogue, and its release contains no AI-generated game assets. Basic local commands work without AI or an API key. The website's concept illustrations are separate from the mod download.
 
-[Website](https://fivevibe.gta-vi.it) · [Download v0.11.0 (experimental pre-release)](https://github.com/AndreaZero/FiveVibe/releases/tag/v0.11.0) · [Project status](docs/status.md) · [Publication guide and description draft](docs/publishing.md)
+[Website](https://fivevibe.gta-vi.it) · [Download v0.12.0 (experimental pre-release)](https://github.com/AndreaZero/FiveVibe/releases/tag/v0.12.0) · [Project status](docs/status.md) · [Publication guide and description draft](docs/publishing.md)
 
-**Status: experimental, v0.11.0.** Free-roam driving has been confirmed by the original user. Favorites, vehicle radio controls, automatic driving cinema, vehicle categories and real-world time/weather are implemented and logic-tested; their native behavior still needs in-game validation. Mission Pilot implements a first full-flow attempt for **Franklin and Lamar**; no successful autonomous playthrough has yet been observed. Background gameplay depends on GTA continuing to run while unfocused.
+**Status: experimental, v0.12.0.** Free-roam driving has been confirmed by the original user. Themed drives, favorites, vehicle radio controls, automatic driving cinema, vehicle categories and real-world time/weather are implemented and logic-tested; their native behavior still needs in-game validation. Mission Pilot implements a first full-flow attempt for **Franklin and Lamar**; no successful autonomous playthrough has yet been observed. Background gameplay depends on GTA continuing to run while unfocused.
 
 ## What you can do
 
 | Vibe | Example |
 | --- | --- |
 | Take a drive | “Find an empty car and cruise.” |
+| Take a themed drive | “Fammi un giro sulla costa.” / “Start countryside drive.” |
 | Choose a vehicle | “Get a motorcycle.” / “Find an SUV and take a chill drive.” |
 | Go somewhere | “Drive to Sandy Shores.” / “Take me to the Kortz Center.” |
 | Find a tuning shop | “Drive to LS Customs.” / “Take me to LS Customs La Mesa in a sports car.” |
@@ -75,6 +76,21 @@ Coordinates come from GTA, not the model or browser. Driving may approach the ne
 Ask for a motorcycle, SUV, off-road vehicle/jeep, sports car, supercar, sedan, muscle car, van or pickup. English and Italian work: “Prendi una moto”, “Prendi una jeep e fai un giro”, or “Portami a LS Customs con un SUV”. “Get a motorcycle” finds and enters one, then waits; add a drive or destination to continue driving.
 
 FiveVibe searches nearby parked, unlocked, available vehicles, normally within 100 metres. It uses GTA vehicle classes; “jeep” means the off-road class, rather than a specific branded model. If no matching vehicle is available, it reports that instead of substituting a different type. It does not spawn vehicles or eject NPCs. Stop your current vehicle before requesting a different type. Bikes use the same native driving tasks as cars and need gameplay testing.
+
+## Coastal and countryside drives
+
+Choose a fixed four-stop itinerary from chat, the companion's **Themed drives** buttons or the native **Ideas** menu:
+
+| Theme | Chat examples | Stops, in order |
+| --- | --- | --- |
+| Coastal drive | “Fammi un giro sulla costa.” / “Start coastal drive.” | Pacific Bluffs → Chumash → Paleto Forest → Paleto Bay |
+| Countryside drive | “Facciamo un giro in campagna.” / “Start countryside drive.” | Route 68 → Sandy Shores → Grapeseed → Alamo Sea |
+
+These named commands run locally in both provider modes without an API key. The tour uses the current protagonist and the current suitable vehicle, or searches for a nearby available vehicle as usual. It first approaches the itinerary's first stop from your current position, then follows the listed order. The HUD and companion show the current stop and progress. Intermediate arrivals advance the route without releasing the driving task or resetting the camera; the final arrival brakes and returns control. Completion is reported only once the car has stopped.
+
+Starting a tour replaces current movement. **F8**, **Stop**, another destination (including a favorite) or another movement request cancels it. Radio, camera, HUD, world settings and saving/listing favorites preserve the active tour; speed changes apply to subsequent legs too. Pause suspends gameplay. Missions, cutscenes, death, character changes and script reload stop the itinerary; it does not automatically restart later. Tours start only in free roam.
+
+These are one-way regional drives ending at the final stop, without an automatic return to the start. GTA's road AI chooses the roads between approximate outdoor approach points: a coastal theme does not guarantee every road stays beside the water, and a countryside theme does not guarantee highway avoidance. There are no forced radio/weather changes, teleports, per-leg AI requests or downloadable route data. Existing stuck and per-leg travel limits apply, with an additional one-hour overall game-time budget. Traffic or an inaccessible point can stop the attempt. Both complete routes still need in-game validation; logic, command and browser tests do not establish a successful native drive.
 
 ## Install
 
@@ -213,7 +229,7 @@ If the cycle key conflicts with FiveVibe's chat, takeover, HUD, trainer or conso
 
 ## What is still limited
 
-- One action per request. A character switch may precede that action. Mission Pilot has one explicit mission profile; arbitrary multi-step plans are not implemented.
+- One action per request. A character switch may precede an ordinary action. Themed drives follow two fixed itineraries and Mission Pilot has one explicit mission profile; arbitrary multi-step plans are not implemented.
 - Driving uses native GTA pathfinding: traffic, collisions and inaccessible routes can still interrupt it. It looks for an empty, unlocked, parked car rather than spawning one or ejecting an NPC.
 - Walking destinations are limited to 600 metres; forward movement to 5–100 metres. A free stroll lasts up to three minutes. Blocked paths stop without teleporting.
 - NPC interactions are approach, follow and an attempted native greeting. Generated NPC conversations and contact calling are not implemented.
@@ -262,6 +278,7 @@ Tests cover local parsing, destination catalogs, custom-file validation, OpenAI 
     .\build\AiConnectionCheck.exe .\.env --ambient
     .\build\AiConnectionCheck.exe .\.env --radio
     .\build\AiConnectionCheck.exe .\.env --favorites
+    .\build\AiConnectionCheck.exe .\.env --tours
     .\build\RealWeatherCheck.exe
 
 The last probe queries the public reference city Rome, Italy, independently of player location or saved sync settings. Ambient checks also cover auto-camera ownership, vehicle filters, weather mapping, opt-in requests and stale location results.

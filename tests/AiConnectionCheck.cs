@@ -15,6 +15,18 @@ internal static class AiConnectionCheck
             if (!config.HasApiKey) { Console.WriteLine("No API key configured in the env file. No request sent."); return 2; }
             using (var planner = new OpenAiPlanner(config.ApiKey, config.Model))
             {
+                if(args.Length==2 && args[1]=="--tours")
+                {
+                    string[] prompts={"Mi piacerebbe fare un giro panoramico lungo la costa, senza una singola destinazione.","Take me on a countryside tour through rural stops.","Drive to Chumash on the coast.","Start a mountain tour, if that theme is implemented."};
+                    string[] actions={"tour_coast","tour_countryside","place","say"};
+                    for(int i=0;i<prompts.Length;i++)
+                    {
+                        var result=planner.PlanAsync(prompts[i],"SYNTHETIC TEST: character=michael; driving=idle; in_vehicle=true; mission_active=false; target_speed_kmh=45",new string[0],CancellationToken.None).GetAwaiter().GetResult();
+                        bool ok=result.Action==actions[i] && result.Actor=="current" && (i!=2 || result.Place=="chumash");
+                        Console.WriteLine("Tour case "+(i+1)+": "+result.Action+" / "+result.Place+" / "+(ok?"OK":"UNEXPECTED"));if(!ok)return 3;
+                    }
+                    Console.WriteLine("Tour interpretation passed. No action sent to GTA.");return 0;
+                }
                 if(args.Length==2 && args[1]=="--favorites")
                 {
                     const string home="fav_00000000000000000000000000000001",quiet="fav_00000000000000000000000000000002",trevor="fav_00000000000000000000000000000003";

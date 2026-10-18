@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.0 — Coastal and countryside drives
+
+- Add two four-stop themed drives: Pacific Bluffs → Chumash → Paleto Forest → Paleto Bay, and Route 68 → Sandy Shores → Grapeseed → Alamo Sea.
+- Start them through English/Italian chat, native Ideas or companion buttons. Named requests bypass OpenAI in both provider modes; AI plans use two validated tour actions.
+- Advance intermediate stops without releasing driving or camera ownership. Brake at the last stop and report completion only after the vehicle stops; show progress in the HUD and companion.
+- Preserve tours during radio/camera/HUD/world controls and favorite saving/listing; a new movement, F8, Stop or story transition cancels the itinerary. Keep speed updates across legs and add a bounded overall session timeout.
+- Reuse native vehicle acquisition and road AI, without teleporting, route downloads, automatic return or per-leg API calls. Start only in free roam. Roads and full journeys still require in-game validation.
+- Add itinerary/state/command/schema regressions, companion queue/interaction tests and an optional synthetic live AI probe.
+
 ## 0.11.0 — Favourite places
 
 - Save the protagonist's current game position under a named favorite from English/Italian chat or the companion. Save/list commands preserve active movement, camera, Mission Pilot and pending plans.
