@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.1 — Reliable character-switch confirmation
+
+- Remove the false rejection after five seconds during the character wheel / loading stage.
+- Confirm the actual requested protagonist and returned control after a stable 750 ms interval, with no active switch, fade or cutscene.
+- Wait up to two minutes for an unconfirmed switch; report an unconfirmed timeout rather than claiming rejection. Follow-up actions only run after confirmation.
+- Add regression cases for delayed transitions, transient flags, cancellation and late success.
+- Explain mission-marker navigation and explicit assistance versus autonomous story progression; clarify the in-game mission status reply.
+
 ## 0.6.0 — Chat, places and world controls
 
 - Fix native input and text measurement truncating multi-component text around 32 characters.

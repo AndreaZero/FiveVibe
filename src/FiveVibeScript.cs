@@ -277,7 +277,7 @@ namespace FiveVibe
             {
                 Vector3 missionPoint;
                 string missionName;
-                if (Function.Call<bool>(Hash.GET_MISSION_FLAG)) chat.Add(false, "A mission is active. I can help with movement, driving, phone and interactions on request. Autonomous mission completion is not available.");
+                if (Function.Call<bool>(Hash.GET_MISSION_FLAG)) chat.Add(false, "A mission is active. I do not read its current objective or follow its steps automatically. Set a waypoint, then ask for movement, phone or interaction help.");
                 else if (WorldActions.TryMissionTarget("nearest", out missionPoint, out missionName)) chat.Add(false, "Detected mission marker: " + missionName + " at about " + Math.Round(missionPoint.DistanceTo(Game.Player.Character.Position)) + " metres. Ask me to go there.");
                 else chat.Add(false, "No known mission marker is available for this character. You can set a waypoint instead.");
                 return;

@@ -20,6 +20,8 @@ namespace FiveVibe
         private int started, lastMove, pulseControl = -1;
         private bool ownsTask, greetingPlayed;
         private CommandPlan completedSwitchPlan;
+        private readonly CharacterSwitchMonitor switchMonitor=new CharacterSwitchMonitor();
+        private bool switchWaitingAnnounced;
         public bool Active { get { return state != "idle"; } }
         public bool Switching { get { return state == "switching"; } }
         public bool BlocksMovement { get { return Active && state != "pulse" && state != "switching"; } }
@@ -198,7 +200,10 @@ namespace FiveVibe
             if (Switching)
             {
                 bool inProgress = Function.Call<bool>(Hash.IS_PLAYER_SWITCH_IN_PROGRESS);
-                if (!inProgress && ActorName(Game.Player.Character) == switchActor && Game.Player.CanControlCharacter)
+                bool sceneReady=!Function.Call<bool>(Hash.IS_SCREEN_FADED_OUT) && !Function.Call<bool>(Hash.IS_SCREEN_FADING_OUT) &&
+                    !Function.Call<bool>(Hash.IS_SCREEN_FADING_IN) && !Function.Call<bool>(Hash.IS_CUTSCENE_ACTIVE);
+                var result=switchMonitor.Observe(elapsed,ActorName(Game.Player.Character)==switchActor,inProgress,Game.Player.CanControlCharacter,sceneReady);
+                if (result==CharacterSwitchResult.Confirmed)
                 {
                     var deferred = afterSwitch;
                     string name = GoalLabel;
@@ -206,8 +211,10 @@ namespace FiveVibe
                     completedSwitchPlan = deferred;
                     say("You are now playing as " + name + ".");
                 }
-                else if (elapsed > 5000 && !inProgress) Finish("The game did not accept the switch. That character must be available in your save.");
-                else if (elapsed > 60000) Finish("Switch timed out. Take control when the game allows it.");
+                else if(result==CharacterSwitchResult.Unconfirmed)
+                    Finish("Could not confirm the character switch within two minutes. GTA may still finish it; no follow-up action will start.");
+                else if(elapsed>=15000 && !switchWaitingAnnounced)
+                { switchWaitingAnnounced=true; say("Still waiting for GTA to confirm the character switch. F8 cancels the wait and any follow-up action."); }
                 return;
             }
             if (player == null || !player.Exists() || player.IsDead || player.Handle != Game.Player.Character.Handle)
@@ -298,6 +305,8 @@ namespace FiveVibe
             ownsTask = false;
             player = null;
             activePlan = afterSwitch = completedSwitchPlan = null;
+            switchMonitor.Reset();
+            switchWaitingAnnounced=false;
             pulseControl = -1;
         }
 

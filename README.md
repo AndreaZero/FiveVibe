@@ -10,7 +10,7 @@ An open-source AI companion for GTA V Enhanced Story Mode. Give your character a
 
 FiveVibe includes a native in-game chat and a local browser companion. Requests can be written in English or Italian; the interface and assistant replies are in English.
 
-**Status: experimental, v0.6.0.** Driving has been confirmed by the original user. New walking, phone, character switching and mission assistance still need broader in-game testing. The browser's HTTP interface is tested independently; background gameplay depends on GTA continuing to run while unfocused.
+**Status: experimental, v0.6.1.** Driving has been confirmed by the original user. New walking, phone, character switching and mission assistance still need broader in-game testing. The browser's HTTP interface is tested independently; background gameplay depends on GTA continuing to run while unfocused.
 
 ## What you can do
 
@@ -138,6 +138,22 @@ Weather/time changes leave an active drive or walk running. The story retains co
 - Cutscenes, death and story transitions can interrupt autonomy. F8 and browser Stop cancel late AI responses as well.
 
 Use mods in Story Mode. Follow Rockstar's official BattlEye settings for modded single-player; restore the appropriate clean setup before GTA Online.
+
+### How mission assistance works today
+
+FiveVibe is currently a tool for explicit actions, not an autonomous story player. The AI plans one supported action per request; it does not continuously read and reason about the mission's next step.
+
+1. **Before a mission:** “What missions are available?” checks the global mission-active flag and reports the nearest recognized available story marker for the current character. It is not a complete quest log.
+2. **Reaching a marker:** “Go to Lester's mission marker” selects a matching known map marker. On foot it walks if the point is within 600 metres; in a car it uses the driving controller. A car stops near the point (about 22 metres); the player may still need to get out or enter the activation area. FiveVibe does not force-start missions.
+3. **When GTA starts the mission:** existing autonomy and pending AI planning are cancelled. GTA's story tasks and cutscenes take control; FiveVibe does not clear those tasks. Owned weather/clock overrides are released.
+4. **During the mission:** when GTA allows player control, explicit requests for walking, driving to a manually placed waypoint, phone or contextual interaction can help. The player supplies the objective or next action. FiveVibe does not automatically read objective subtitles, select the yellow mission target, handle combat, switch mission roles or decide the next stage.
+5. **Afterward:** there is no automatic “complete this, collect the next mission, continue the campaign” loop.
+
+A practical current session is: ask to approach the mission, enter its trigger yourself if necessary, let the cutscene play, set a waypoint for a driving segment and request driving, then handle remaining objectives or give another supported request.
+
+Whole-mission delegation needs actual objective/progress detection, stage transitions, mission-specific actions and recovery from failure. The roadmap should start with a tested driving mission rather than promising every mission from marker navigation alone.
+
+Character switches wait for the requested protagonist, returned player control and a stable finished transition. The character wheel/loading stage is not treated as a rejection after five seconds. A two-minute unconfirmed timeout discards follow-up actions without claiming GTA rejected the switch. F8 cancels FiveVibe's wait and queued follow-up; GTA can still finish its own camera transition.
 
 ## Build and checks
 
