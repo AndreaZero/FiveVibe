@@ -12,9 +12,9 @@ FiveVibe includes a native in-game chat and a local browser companion. Requests 
 
 AI interprets text requests into validated game actions; GTA's native tasks and controls move the character. The mod does not generate images, models, textures, voices or NPC dialogue, and its release contains no AI-generated game assets. Basic local commands work without AI or an API key. The website's concept illustrations are separate from the mod download.
 
-[Website](https://fivevibe.gta-vi.it) · [Download v0.10.0 (experimental pre-release)](https://github.com/AndreaZero/FiveVibe/releases/tag/v0.10.0) · [Project status](docs/status.md) · [Publication guide and description draft](docs/publishing.md)
+[Website](https://fivevibe.gta-vi.it) · [Download v0.11.0 (experimental pre-release)](https://github.com/AndreaZero/FiveVibe/releases/tag/v0.11.0) · [Project status](docs/status.md) · [Publication guide and description draft](docs/publishing.md)
 
-**Status: experimental, v0.10.0.** Free-roam driving has been confirmed by the original user. Vehicle radio controls, automatic driving cinema, vehicle categories and real-world time/weather are implemented and logic-tested; their native behavior still needs in-game validation. Mission Pilot implements a first full-flow attempt for **Franklin and Lamar**; no successful autonomous playthrough has yet been observed. Background gameplay depends on GTA continuing to run while unfocused.
+**Status: experimental, v0.11.0.** Free-roam driving has been confirmed by the original user. Favorites, vehicle radio controls, automatic driving cinema, vehicle categories and real-world time/weather are implemented and logic-tested; their native behavior still needs in-game validation. Mission Pilot implements a first full-flow attempt for **Franklin and Lamar**; no successful autonomous playthrough has yet been observed. Background gameplay depends on GTA continuing to run while unfocused.
 
 ## What you can do
 
@@ -33,6 +33,7 @@ AI interprets text requests into validated game actions; GTA's native tasks and 
 | Try Mission Pilot | “Start Mission Pilot for Franklin and Lamar.” |
 | Watch the ride | “Enable cinema camera.” / “Switch to first person.” |
 | Choose the soundtrack | “Play Radio Mirror Park.” / “Spegni la radio.” |
+| Remember a spot | “Salva qui come Casa sul lago.” / “Go to favorite Casa sul lago.” |
 | Match real life | “Enable real time and weather.” |
 | Take over | Press **F8**, click **Stop & take over**, or say “stop.” |
 
@@ -56,6 +57,18 @@ Copy config/FiveVibe.locations.example.json to your game's scripts/FiveVibe.loca
     ]
 
 Custom places become available to both AI and local commands. Up to 100 custom locations are supported. IDs must be unique; invalid files cannot partially replace the catalog. Unknown locations prompt clarification or a map waypoint, rather than invented coordinates.
+
+### Save your favourite places
+
+Use **“Salva qui come Casa sul lago”**, **“Salva la posizione attuale come Casa”** or **“Save this place as Home”**. FiveVibe captures the protagonist's actual game position when the request is handled, on foot or in a vehicle. Saving preserves the current drive, camera, Mission Pilot and pending movement plan.
+
+Return with **“Torna al preferito Casa sul lago”** or **“Go to favorite Home”**. **“Torna a Casa sul lago”** also works when that exact saved name does not collide with a built-in/custom destination. Use the explicit favorite form to resolve a name collision. Returning defaults to driving, using the current suitable vehicle or searching for one as usual. **“Walk to favorite Home”** / **“Vai a piedi al preferito Casa”** chooses walking, within the existing 600-metre limit. Returning deliberately replaces the current movement; saving or listing favorites does not.
+
+The companion's **Your favorites** section has a name field, **Save current location**, and **Drive / Walk** buttons for every saved place. It waits for GTA to confirm the saved entry instead of displaying an invented position. Favorites also appear in the native Places menu. **“Show my favorites”** / **“Mostra i miei preferiti”** lists names in chat. These save/list/explicit-return commands work without an API key in both provider modes.
+
+Up to **50** places are stored per Windows user in `%LOCALAPPDATA%\FiveVibe\favorites.json`, shared across story saves and protagonists on that account. Names use 1-60 characters: letters, numbers, spaces, apostrophes, periods, hyphens, underscores or parentheses. Put literal names in double quotes in chat if needed. Reusing a name updates that place's position while keeping its ID; matching ignores case and accents. Data is written atomically; invalid files or external edits are not silently overwritten. Fix the file and reload scripts if loading fails. Back up the file to transfer your favorites; it is separate from `FiveVibe.locations.json` and release archives.
+
+Coordinates come from GTA, not the model or browser. Driving may approach the nearest road, and saved points do not guarantee interior access or an exact parking spot. Saving/returning is unavailable during pause or story transitions. Position capture, disk persistence and route dispatch are implemented and tested offline; an actual in-game save/restart/return remains an acceptance test. See [data and security](SECURITY.md) for how saved names can enter later AI requests.
 
 ### Choose your ride
 
@@ -248,6 +261,7 @@ Tests cover local parsing, destination catalogs, custom-file validation, OpenAI 
     .\build\AiConnectionCheck.exe .\.env --camera
     .\build\AiConnectionCheck.exe .\.env --ambient
     .\build\AiConnectionCheck.exe .\.env --radio
+    .\build\AiConnectionCheck.exe .\.env --favorites
     .\build\RealWeatherCheck.exe
 
 The last probe queries the public reference city Rome, Italy, independently of player location or saved sync settings. Ambient checks also cover auto-camera ownership, vehicle filters, weather mapping, opt-in requests and stale location results.
@@ -262,7 +276,7 @@ It also migrates the earlier GTA AI prototype, preserving its env-file reference
 ## Roadmap
 
 - More places and community-tested approach points.
-- Remember a favourite spot from the current waypoint.
+- Save a favourite directly from a map waypoint, in addition to the current position.
 - Short action sequences: arrive, park, get out, take a walk.
 - Better stuck detection and activity feedback for background sessions.
 - Validate Franklin and Lamar in-game, then add independently tested mission profiles.

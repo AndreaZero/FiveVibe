@@ -55,6 +55,7 @@ namespace FiveVibe
         private readonly Keys cameraKey;
         private readonly RealWorldService realWorld;
         private readonly VehicleRadio vehicleRadio=new VehicleRadio();
+        private readonly FavoriteStore favorites;
         private bool realClockApplied, realWeatherApplied;
         private string appliedRealWeather="";
         private long lastClockSecond=-1;
@@ -68,6 +69,9 @@ namespace FiveVibe
             var settings = ScriptSettings.Load(Path.Combine(BaseDirectory, "FiveVibe.ini"));
             try { PlaceCatalog.LoadCustom(Path.Combine(BaseDirectory, "FiveVibe.locations.json")); }
             catch (Exception) { chat.Add(false, "Custom locations could not be loaded. Check FiveVibe.locations.json; built-in places remain available."); }
+            favorites=new FavoriteStore(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"FiveVibe","favorites.json"));
+            try { favorites.Load(); PlaceCatalog.SetFavorites(favorites.All); }
+            catch(Exception) { PlaceCatalog.SetFavorites(null); chat.Add(false,"Favorites could not be loaded. Fix favorites.json and reload scripts; the file is preserved."); }
             openKey = settings.GetValue("Chat", "OpenKey", Keys.F7);
             takeoverKey = settings.GetValue("Chat", "TakeOverKey", Keys.F8);
             if (takeoverKey == openKey) takeoverKey = Keys.F8 == openKey ? Keys.F9 : Keys.F8;
@@ -131,6 +135,8 @@ namespace FiveVibe
             chat.Add(true, prompt);
             if (LocalPlanner.IsImmediateStop(prompt)) { BrakeOrRelease(); return; }
             if (Function.Call<bool>(Hash.NETWORK_IS_SESSION_ACTIVE)) { chat.Add(false, "FiveVibe runs in Story Mode."); return; }
+            FavoriteRequest favoriteRequest;
+            if(FavoriteCommands.TryParse(prompt,favorites,out favoriteRequest)) { HandleFavorite(favoriteRequest,false); return; }
             CommandPlan radioPlan;
             if(RadioCommands.TryParse(prompt,out radioPlan)) { Execute(radioPlan); return; }
             var directPilot = LocalPlanner.Parse(prompt, speedKmh);
@@ -253,6 +259,8 @@ namespace FiveVibe
             if (companion.TryTake(out command))
             {
                 if (command.Stop) Stop("You have control.");
+                else if(command.FavoriteAction!=null)
+                    HandleFavorite(new FavoriteRequest {Action=command.FavoriteAction,Name=command.FavoriteName,Id=command.FavoriteId,Walk=command.FavoriteMode=="walk"},true);
                 else if(command.Location)
                 {
                     if(command.City!=null) realWorld.SetCity(command.City);
@@ -273,11 +281,50 @@ namespace FiveVibe
                 gameTime=ClockLabel(), weather=World.Weather.ToString(),
                 camera=new { mode=spectatorCamera.ModeName, status=spectatorCamera.Status, letterbox=spectatorCamera.Letterbox, cycleKey=cameraKey.ToString(), autoDriving=spectatorCamera.AutoCinema },
                 radio=vehicleRadio.Snapshot(),
+                favorites=new {ready=favorites.Ready,canUse=favorites.Ready && CanUseFavorites(),items=favorites.All.OrderBy(f=>f.Name).Select(f=>new {id=f.Id,name=f.Name}).ToArray()},
                 realWorld=new { clock=realWorld.ClockEnabled, weather=realWorld.WeatherEnabled, location=realWorld.LocationName, status=realWorld.Status, paused=Function.Call<bool>(Hash.GET_MISSION_FLAG) },
                 missionPilot = new { active=missionPilot.Active, joined=missionPilot.Joined, stage=missionPilot.Status, objective=missionPilot.Objective, label=missionPilot.ObjectiveKey, result=missionPilot.Result },
                 messages=chat.Messages.Select(m => new { user=m.User, text=m.Text }).ToArray(),
                 places=PlaceCatalog.All.Select(p => new { id=p.Id, name=p.Name }).ToArray()
             }));
+        }
+
+        private bool CanUseFavorites()
+        {
+            return !Game.IsPaused && !Game.Player.Character.IsDead && Game.Player.CanControlCharacter &&
+                !Function.Call<bool>(Hash.NETWORK_IS_SESSION_ACTIVE) && !Function.Call<bool>(Hash.IS_CUTSCENE_ACTIVE) &&
+                !Function.Call<bool>(Hash.IS_PLAYER_SWITCH_IN_PROGRESS) && !Function.Call<bool>(Hash.IS_SCREEN_FADED_OUT);
+        }
+
+        private void HandleFavorite(FavoriteRequest request,bool announce)
+        {
+            try
+            {
+                if(request.Error!=null) {chat.Add(false,request.Error);return;}
+                if(!favorites.Ready) {chat.Add(false,"Favorites could not be loaded. Fix favorites.json and reload scripts; the file is preserved.");return;}
+                if(request.Action=="list")
+                {chat.Add(false,favorites.All.Length==0?"No favorites yet. Say 'Save this place as Home'.":"Favorites: "+string.Join(", ",favorites.All.Take(8).Select(f=>f.Name))+". The companion lists every saved place.");return;}
+                if(!CanUseFavorites()) {chat.Add(false,"Resume normal Story Mode gameplay before saving or visiting a favorite. Your active action is unchanged.");return;}
+                if(request.Action=="save")
+                {
+                    if(announce)chat.Add(true,"Save current location as "+request.Name);
+                    var point=Game.Player.Character.Position;bool updated;
+                    var saved=favorites.Save(request.Name,point.X,point.Y,point.Z,out updated);
+                    PlaceCatalog.SetFavorites(favorites.All);
+                    chat.Add(false,(updated?"Updated favorite: ":"Saved favorite: ")+saved.Name+". Your active action continues.");return;
+                }
+                if(request.Action!="go") {chat.Add(false,"Choose Save current location or a saved favorite.");return;}
+                var destination=request.Id!=null?favorites.Get(request.Id):favorites.FindName(request.Name);
+                if(destination==null) {chat.Add(false,"That favorite was not found. Check its exact name in the companion; your active action is unchanged.");return;}
+                if(request.Walk && new Vector3(destination.X,destination.Y,destination.Z).DistanceTo(Game.Player.Character.Position)>600)
+                {chat.Add(false,"That favorite is more than 600 metres away. Choose Drive instead; your active action is unchanged.");return;}
+                var plan=CommandPlan.Create(request.Walk?"walk_place":"place","current",speedKmh,destination.Id);
+                if(announce)chat.Add(true,(request.Walk?"Walk to favorite ":"Drive to favorite ")+destination.Name);
+                CancelPlanning();Execute(plan);
+            }
+            catch(ArgumentException e) {chat.Add(false,e.Message);}
+            catch(InvalidOperationException e) {chat.Add(false,e.Message);}
+            catch(Exception) {if(request.Action=="go")throw;chat.Add(false,"Could not save favorites. Existing saved data was not reset; check file permissions and reload scripts.");}
         }
 
         private bool RefreshOpenAiConfiguration(bool announceFailure)

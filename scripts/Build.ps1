@@ -18,38 +18,43 @@ $sources = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src') -Filter '
 $pageResource = '/resource:' + (Join-Path $projectRoot 'companion\index.html') + ',FiveVibe.Companion.html'
 & $compiler @commonArgs '/target:library' ('/out:' + (Join-Path $distRoot 'scripts\FiveVibe.dll')) ('/reference:' + $apiDll) $pageResource @sources
 if ($LASTEXITCODE -ne 0) { throw 'Mod compilation failed.' }
-$testSources = @('src\RadioControls.cs','src\VehicleSelection.cs','src\RealWorldService.cs','src\CameraDirectorLogic.cs','src\CharacterSwitchMonitor.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','src\OpenAiPlanner.cs','src\AiConfiguration.cs','src\HudLayout.cs','tests\PlannerTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
+$testSources = @('src\FavoriteStore.cs','src\RadioControls.cs','src\VehicleSelection.cs','src\RealWorldService.cs','src\CameraDirectorLogic.cs','src\CharacterSwitchMonitor.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','src\OpenAiPlanner.cs','src\AiConfiguration.cs','src\HudLayout.cs','tests\PlannerTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
 & $compiler @commonArgs '/target:exe' ('/out:' + (Join-Path $buildRoot 'PlannerTests.exe')) @testSources
 if ($LASTEXITCODE -ne 0) { throw 'Check compilation failed.' }
 & (Join-Path $buildRoot 'PlannerTests.exe')
 if ($LASTEXITCODE -ne 0) { throw 'Checks failed.' }
-$missionSources = @('src\RadioControls.cs','src\VehicleSelection.cs','src\RealWorldService.cs','src\CameraDirectorLogic.cs','src\MissionFlow.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','tests\MissionTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
+$missionSources = @('src\FavoriteStore.cs','src\RadioControls.cs','src\VehicleSelection.cs','src\RealWorldService.cs','src\CameraDirectorLogic.cs','src\MissionFlow.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','tests\MissionTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
 & $compiler @commonArgs '/target:exe' ('/out:' + (Join-Path $buildRoot 'MissionTests.exe')) @missionSources
 if ($LASTEXITCODE -ne 0) { throw 'Mission checks failed to compile.' }
 & (Join-Path $buildRoot 'MissionTests.exe')
 if ($LASTEXITCODE -ne 0) { throw 'Mission checks failed.' }
-$cameraSources = @('src\RadioControls.cs','src\VehicleSelection.cs','src\RealWorldService.cs','src\CameraDirectorLogic.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','tests\CameraTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
+$cameraSources = @('src\FavoriteStore.cs','src\RadioControls.cs','src\VehicleSelection.cs','src\RealWorldService.cs','src\CameraDirectorLogic.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','tests\CameraTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
 & $compiler @commonArgs '/target:exe' ('/out:' + (Join-Path $buildRoot 'CameraTests.exe')) @cameraSources
 if ($LASTEXITCODE -ne 0) { throw 'Camera checks failed to compile.' }
 & (Join-Path $buildRoot 'CameraTests.exe')
 if ($LASTEXITCODE -ne 0) { throw 'Camera checks failed.' }
-$ambientSources = @('src\RadioControls.cs','src\VehicleSelection.cs','src\RealWorldService.cs','src\CameraDirectorLogic.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','tests\AmbientTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
+$ambientSources = @('src\FavoriteStore.cs','src\RadioControls.cs','src\VehicleSelection.cs','src\RealWorldService.cs','src\CameraDirectorLogic.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','tests\AmbientTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
 & $compiler @commonArgs '/target:exe' ('/out:' + (Join-Path $buildRoot 'AmbientTests.exe')) @ambientSources
 if ($LASTEXITCODE -ne 0) { throw 'Ambient checks failed to compile.' }
 & (Join-Path $buildRoot 'AmbientTests.exe')
 if ($LASTEXITCODE -ne 0) { throw 'Ambient checks failed.' }
-$weatherProbeSources = @('src\RadioControls.cs','src\VehicleSelection.cs','src\RealWorldService.cs','src\CameraDirectorLogic.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','tests\RealWeatherCheck.cs') | ForEach-Object { Join-Path $projectRoot $_ }
+$weatherProbeSources = @('src\FavoriteStore.cs','src\RadioControls.cs','src\VehicleSelection.cs','src\RealWorldService.cs','src\CameraDirectorLogic.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','tests\RealWeatherCheck.cs') | ForEach-Object { Join-Path $projectRoot $_ }
 & $compiler @commonArgs '/target:exe' ('/out:' + (Join-Path $buildRoot 'RealWeatherCheck.exe')) @weatherProbeSources
 if ($LASTEXITCODE -ne 0) { throw 'Weather reference check failed to compile.' }
-$probeSources = @('src\RadioControls.cs','src\VehicleSelection.cs','src\RealWorldService.cs','src\CameraDirectorLogic.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','src\OpenAiPlanner.cs','src\AiConfiguration.cs','tests\AiConnectionCheck.cs') | ForEach-Object { Join-Path $projectRoot $_ }
+$probeSources = @('src\FavoriteStore.cs','src\RadioControls.cs','src\VehicleSelection.cs','src\RealWorldService.cs','src\CameraDirectorLogic.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','src\OpenAiPlanner.cs','src\AiConfiguration.cs','tests\AiConnectionCheck.cs') | ForEach-Object { Join-Path $projectRoot $_ }
 & $compiler @commonArgs '/target:exe' ('/out:' + (Join-Path $buildRoot 'AiConnectionCheck.exe')) @probeSources
 if ($LASTEXITCODE -ne 0) { throw 'AI connection check compilation failed.' }
-$radioSources = @('src\RadioControls.cs','src\VehicleSelection.cs','src\RealWorldService.cs','src\CameraDirectorLogic.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','src\OpenAiPlanner.cs','src\AiConfiguration.cs','tests\RadioTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
+$radioSources = @('src\FavoriteStore.cs','src\RadioControls.cs','src\VehicleSelection.cs','src\RealWorldService.cs','src\CameraDirectorLogic.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','src\OpenAiPlanner.cs','src\AiConfiguration.cs','tests\RadioTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
 & $compiler @commonArgs '/target:exe' ('/out:' + (Join-Path $buildRoot 'RadioTests.exe')) @radioSources
 if ($LASTEXITCODE -ne 0) { throw 'Radio checks failed to compile.' }
 & (Join-Path $buildRoot 'RadioTests.exe')
 if ($LASTEXITCODE -ne 0) { throw 'Radio checks failed.' }
-$companionSources = @('src\CompanionServer.cs','tests\CompanionTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
+$favoriteSources = @('src\FavoriteStore.cs','src\FavoriteCommands.cs','src\RadioControls.cs','src\VehicleSelection.cs','src\RealWorldService.cs','src\CameraDirectorLogic.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','tests\FavoriteTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
+& $compiler @commonArgs '/target:exe' ('/out:' + (Join-Path $buildRoot 'FavoriteTests.exe')) @favoriteSources
+if ($LASTEXITCODE -ne 0) { throw 'Favorite checks failed to compile.' }
+& (Join-Path $buildRoot 'FavoriteTests.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Favorite checks failed.' }
+$companionSources = @('src\FavoriteStore.cs','src\CompanionServer.cs','tests\CompanionTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
 & $compiler @commonArgs '/target:exe' ('/out:' + (Join-Path $buildRoot 'CompanionTests.exe')) $pageResource @companionSources
 if ($LASTEXITCODE -ne 0) { throw 'Companion checks failed to compile.' }
 & (Join-Path $buildRoot 'CompanionTests.exe')

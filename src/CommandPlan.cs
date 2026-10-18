@@ -163,7 +163,7 @@ namespace FiveVibe
             int destinations = mentioned.Length + (Has(text, "segnaposto|waypoint|indicatore|marker") ? 1 : 0);
             if (destinations > 1) return Say("Choose one destination at a time.");
             string place = mentioned.FirstOrDefault() ?? "none";
-            if (place.EndsWith("_home", StringComparison.Ordinal) && !Regex.IsMatch(text,@"^(?:michael|micheal|franklin|trevor)\s*[,!:]")) actor="current";
+            if ((place.EndsWith("_home", StringComparison.Ordinal) || place.StartsWith("fav_",StringComparison.Ordinal)) && !Regex.IsMatch(text,@"^(?:michael|micheal|franklin|trevor)\s*[,!:]")) actor="current";
             // A destination is actionable only with a travel verb, not a casual mention.
             bool travel = Has(text, "vai|andiamo|andare|portami|porta|raggiungi|guidaci|guida|accompagna|torna|go|drive|take|head|walk|run|jog");
             bool onFoot = Has(text, "piedi|cammina|camminare|passeggia|passeggiata|corri|correre|walk|walking|stroll|on foot|run|jog");

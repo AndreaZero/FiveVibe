@@ -72,6 +72,12 @@ namespace FiveVibe
             P("humane_labs", "Humane Labs Approach", 3616,3744,28, "humane labs|laboratori humane")
         };
         private static List<PlaceDefinition> places = new List<PlaceDefinition>(BuiltIns);
+        private static PlaceDefinition[] favorites=new PlaceDefinition[0];
+        public static void SetFavorites(FavoritePlace[] saved)
+        {
+            var next=(saved??new FavoritePlace[0]).Select(f=>new PlaceDefinition {Id=f.Id,Name="Favorite: "+f.Name,Aliases=new[] {"favorite "+f.Name,"favourite "+f.Name,"preferito "+f.Name},X=f.X,Y=f.Y,Z=f.Z}).ToArray();
+            places=places.Where(p=>!p.Id.StartsWith("fav_",StringComparison.Ordinal)).Concat(next).ToList();favorites=next;
+        }
         private static PlaceDefinition P(string id, string name, float x, float y, float z, string aliases)
         { return new PlaceDefinition { Id=id, Name=name, X=x, Y=y, Z=z, Aliases=aliases.Split('|') }; }
         public static string[] Ids { get { return new[] { "none" }.Concat(places.Select(p => p.Id)).ToArray(); } }
@@ -98,7 +104,7 @@ namespace FiveVibe
                 if (custom == null || custom.Length > 100) throw new FormatException("Use an array with at most 100 custom locations.");
                 foreach (var p in custom)
                 {
-                    if (p == null || !Regex.IsMatch(p.Id ?? "", "^[a-z][a-z0-9_]{1,47}$") || p.Id == "none" ||
+                    if (p == null || !Regex.IsMatch(p.Id ?? "", "^[a-z][a-z0-9_]{1,47}$") || p.Id == "none" || p.Id.StartsWith("fav_",StringComparison.Ordinal) ||
                         string.IsNullOrWhiteSpace(p.Name) || p.Name.Length > 80 || next.Any(existing => existing.Id == p.Id) ||
                         !Finite(p.X, 10000) || !Finite(p.Y, 10000) || !Finite(p.Z, 2000) ||
                         (p.Aliases != null && (p.Aliases.Length > 12 || p.Aliases.Any(a => string.IsNullOrWhiteSpace(a) || a.Length > 80))))
@@ -106,7 +112,7 @@ namespace FiveVibe
                     next.Add(p);
                 }
             }
-            places = next; // Invalid files never partially change the catalog.
+            places = next.Concat(favorites).ToList(); // Invalid files never partially change the catalog.
         }
         private static bool Finite(float n, float limit) { return !float.IsNaN(n) && !float.IsInfinity(n) && Math.Abs(n) < limit; }
         public static string Describe()

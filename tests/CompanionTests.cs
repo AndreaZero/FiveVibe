@@ -67,6 +67,25 @@ internal static class CompanionTests
                 Check(server.TryTake(out command) && command.Text=="Play Radio Mirror Park" && !command.Stop,"Radio selection is a text request, not takeover");
                 Check(Request(client,"/api/message",token,"{\"text\":\"Radio off\"}").StatusCode==HttpStatusCode.Accepted,"Radio off button request accepted");
                 Check(server.TryTake(out command) && command.Text=="Radio off" && !command.Stop,"Radio off does not become companion Stop");
+                const string favoriteId="fav_0123456789abcdef0123456789abcdef";
+                Check(Request(client,"/api/favorites",null,"{\"action\":\"save\",\"name\":\"Home\"}").StatusCode==HttpStatusCode.Unauthorized,"Favorites require session authentication");
+                Check(Request(client,"/api/favorites",token,"{\"action\":\"save\",\"name\":\"Home\"}","http://evil.invalid").StatusCode==HttpStatusCode.Forbidden,"Cross-origin favorite save rejected");
+                Check(Request(client,"/api/favorites",token,"{\"action\":\"save\",\"name\":\"Home\",\"X\":999}").StatusCode==HttpStatusCode.BadRequest,"Browser cannot supply favorite coordinates");
+                Check(Request(client,"/api/favorites",token,"{\"action\":\"save\",\"name\":\"../Home\"}").StatusCode==HttpStatusCode.BadRequest,"Invalid favorite name rejected");
+                Check(Request(client,"/api/favorites",token,"{\"action\":\"save\",\"name\":true}").StatusCode==HttpStatusCode.BadRequest,"Favorite name must be text");
+                Check(Request(client,"/api/favorites",token,"{\"action\":\"save\",\"name\":\"  Home  \"}").StatusCode==HttpStatusCode.Accepted,"Save-current-location request accepted");
+                Check(server.TryTake(out command) && command.FavoriteAction=="save" && command.FavoriteName=="Home" && !command.Stop,"Only a name is delivered; game thread captures position");
+                Check(Request(client,"/api/favorites",token,"{\"action\":\"go\",\"id\":\"mirror_park\",\"mode\":\"drive\"}").StatusCode==HttpStatusCode.BadRequest,"Go endpoint only accepts favorite IDs");
+                Check(Request(client,"/api/favorites",token,"{\"action\":\"go\",\"id\":\""+favoriteId+"\",\"mode\":\"teleport\"}").StatusCode==HttpStatusCode.BadRequest,"Unsupported favorite travel mode rejected");
+                foreach(string mode in new[]{"drive","walk"})
+                {
+                    Check(Request(client,"/api/favorites",token,"{\"action\":\"go\",\"id\":\""+favoriteId+"\",\"mode\":\""+mode+"\"}").StatusCode==HttpStatusCode.Accepted,"Favorite travel queued: "+mode);
+                    Check(server.TryTake(out command) && command.FavoriteAction=="go" && command.FavoriteId==favoriteId && command.FavoriteMode==mode && !command.Stop,"Favorite mode stays structured: "+mode);
+                }
+                for(int i=0;i<8;i++)Request(client,"/api/favorites",token,"{\"action\":\"save\",\"name\":\"Home\"}");
+                Check((int)Request(client,"/api/favorites",token,"{\"action\":\"save\",\"name\":\"Overflow\"}").StatusCode==429,"Favorite commands share bounded queue");
+                Request(client,"/api/stop",token,"{}");
+                Check(server.TryTake(out command) && command.Stop && !server.TryTake(out command),"Stop discards pending favorite saves and travel");
             }
             Console.WriteLine(passed+" companion checks passed."); return 0;
         }

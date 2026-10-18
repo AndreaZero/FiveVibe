@@ -6,6 +6,10 @@ OpenAI receives the request, up to ten recent conversation messages and a compac
 
 Mission Pilot replaces a private local `mission-session.jsonl` diagnostic log in the user's FiveVibe local application data folder at each start. It records in-game observations and result counters, with no credentials or screenshots. It is not uploaded automatically. The companion publishes the stage/objective label, never the log or API key. Review in-game positions and objective text before sharing a log publicly.
 
+Favorites are stored per Windows user in `%LOCALAPPDATA%\FiveVibe\favorites.json`, containing names, generated IDs and in-game coordinates. They are not real-world locations and are separate from custom-location configuration. The game thread captures the current protagonist position; the companion save endpoint accepts only a name, and its go endpoint accepts only a saved ID and drive/walk mode. The loopback snapshot contains favorite names/IDs, not coordinates. Save/list/explicit-return commands execute locally without an API call. Saved names and IDs join the destination catalog sent in subsequent OpenAI planning requests; names may also occur in recent chat history. Favorite coordinates are not included in that catalog, although the normal game-state context already includes the protagonist's current position. Review names and file contents before sharing. No favorites file is bundled or uploaded by the release workflow.
+
+Favorite files are size/count bounded and fully validated before loading. Updates use a sibling staging file and atomic replacement; malformed or externally changed data is not silently reset. The mod does not support concurrent independent writers to the same file: reload scripts after editing it externally. To clear saved places, close GTA, back up and remove this file, then restart. The installer preserves it because it lives outside the game's scripts directory.
+
 Real-world sync is optional and initially off. PC time uses the local Windows clock without a network request. Weather location is configured with a city or an explicit browser location permission after clicking **Use my location**. There is no automatic IP lookup or continuous tracking. Coordinates are rounded to two decimal places in the browser and validated/rounded again before local storage and weather requests. City searches go to `geocoding-api.open-meteo.com`; rounded coordinates go to `api.open-meteo.com`. HTTPS requests have fixed hosts, bounded responses and timeouts. These providers necessarily see the requesting IP address.
 
 Location and sync switches are saved in `%LOCALAPPDATA%\FiveVibe\real-world.json`. The companion snapshot includes the location's display name, never coordinates. The structured city/location endpoint and recognized native city commands bypass OpenAI and conversation history; the game-state context excludes the real-world location. Arbitrary text typed into an ordinary AI chat request is still subject to the request-sharing behavior described above. Disable sync and remove this settings file with GTA closed to clear the saved location.
@@ -13,7 +17,7 @@ Location and sync switches are saved in `%LOCALAPPDATA%\FiveVibe\real-world.json
 The browser companion:
 
 - Binds to IPv4 loopback only; it is not designed for network or internet exposure.
-- Uses a new random session token, explicit Host/Origin checks, no CORS, and authenticated state/action/location endpoints.
+- Uses a new random session token, explicit Host/Origin checks, no CORS, and authenticated state/action/location/favorites endpoints.
 - Keeps the token in the launch URL fragment and browser session storage. The OpenAI key is never part of its state or page.
 - Uses bounded headers, request bodies, connections, queues and timeouts.
 - Runs no GTA calls on HTTP worker threads. A game-script tick consumes commands.

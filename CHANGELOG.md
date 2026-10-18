@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.0 — Favourite places
+
+- Save the protagonist's current game position under a named favorite from English/Italian chat or the companion. Save/list commands preserve active movement, camera, Mission Pilot and pending plans.
+- Return by chat or companion Drive/Walk buttons using normal destination tasks, with the existing walking-distance limit. Explicit favorite names resolve built-in-name collisions; returning replaces current movement.
+- Persist up to 50 named places per Windows user with stable generated IDs, atomic writes, validated coordinates/names and protection against invalid files or external edits. Reusing a name updates its position.
+- Add favorites to native Places and the validated AI destination catalog, without accepting model/browser coordinates. Reserve the fav_ ID namespace for private saved places.
+- Add authenticated structured companion save/go requests, observed list updates and pause/disconnection/read-error states. Consume bounded rejected-origin POST bodies before replying to avoid connection resets.
+- Add persistence, parsing, catalog, HTTP and companion interaction regressions and an optional synthetic live AI probe. Actual in-game save/restart/return validation remains pending.
+
 ## 0.10.0 — Radio for the ride
 
 - Select 19 standard Story Mode radio stations by name in English/Italian chat, or turn the vehicle radio off. Named commands bypass OpenAI in both provider modes.

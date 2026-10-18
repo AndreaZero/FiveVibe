@@ -6,7 +6,7 @@ $tracked = @(git -C $projectRoot ls-files)
 if ($LASTEXITCODE -ne 0 -or !$tracked.Count) { throw 'Stage the intended public files first.' }
 $problems = New-Object 'System.Collections.Generic.List[string]'
 foreach ($relative in $tracked) {
-    if ($relative -match '(^|/)(vendor|build|dist)/|(^|/)\.env($|\.(?!example$))|\.local\.(ini|json)$|compatibility.*\.json$|\.(dll|exe|asi|pdb|zip|log)$') { $problems.Add($relative + ': private or generated path'); continue }
+    if ($relative -match '(^|/)(vendor|build|dist)/|(^|/)favorites\.json$|(^|/)\.env($|\.(?!example$))|\.local\.(ini|json)$|compatibility.*\.json$|\.(dll|exe|asi|pdb|zip|log)$') { $problems.Add($relative + ': private or generated path'); continue }
     $file = Join-Path $projectRoot $relative
     if (!(Test-Path -LiteralPath $file)) { continue }
     $text = [IO.File]::ReadAllText($file)

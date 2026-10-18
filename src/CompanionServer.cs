@@ -12,7 +12,7 @@ using System.Web.Script.Serialization;
 
 namespace FiveVibe
 {
-    public sealed class CompanionCommand { public string Text,City; public bool Stop,Location; public double Latitude,Longitude; }
+    public sealed class CompanionCommand { public string Text,City,FavoriteAction,FavoriteName,FavoriteId,FavoriteMode; public bool Stop,Location; public double Latitude,Longitude; }
 
     // Loopback only. Worker threads never call GTA; commands are consumed by the script Tick.
     public sealed class CompanionServer : IDisposable
@@ -100,13 +100,14 @@ namespace FiveVibe
                     headers.Add(lines[i].Substring(0,colon),lines[i].Substring(colon+1).Trim());
                 }
                 string value;
-                if (first.Length != 3 || !headers.TryGetValue("Host",out value) || !value.Equals(host,StringComparison.OrdinalIgnoreCase) ||
-                    (headers.TryGetValue("Origin",out value) && value != origin) || headers.ContainsKey("Transfer-Encoding"))
+                if (first.Length != 3 || headers.ContainsKey("Transfer-Encoding"))
                 { Reply(stream,403,"{}",false); return; }
-                if (first[0] == "GET" && first[1] == "/") { Reply(stream,200,page,true); return; }
+                bool allowedOrigin=headers.TryGetValue("Host",out value) && value.Equals(host,StringComparison.OrdinalIgnoreCase) &&
+                    (!headers.TryGetValue("Origin",out value) || value==origin);
+                if (allowedOrigin && first[0] == "GET" && first[1] == "/") { Reply(stream,200,page,true); return; }
                 byte[] body = new byte[0];
                 // Consume bounded request bodies before replying, including Stop and
-                // rejected authentication, so closing the socket does not reset HTTP.
+                // rejected origin/authentication, so closing the socket does not reset HTTP.
                 if (first[0] == "POST")
                 {
                     int length;
@@ -116,10 +117,11 @@ namespace FiveVibe
                     body = new byte[length];
                     for (int count=0; count<length; ) { int read=stream.Read(body,count,length-count); if (read==0) return; count+=read; }
                 }
+                if(!allowedOrigin) {Reply(stream,403,"{}",false);return;}
                 if (!headers.TryGetValue("Authorization",out value) || value != "Bearer " + token)
                 { Reply(stream,401,"{}",false); return; }
                 if (first[0] == "GET" && first[1] == "/api/state") { Reply(stream,200,snapshot,false); return; }
-                if (first[0] != "POST" || (first[1] != "/api/message" && first[1] != "/api/stop" && first[1]!="/api/location"))
+                if (first[0] != "POST" || (first[1] != "/api/message" && first[1] != "/api/stop" && first[1]!="/api/location" && first[1]!="/api/favorites"))
                 { Reply(stream,404,"{}",false); return; }
                 if (first[1] == "/api/stop")
                 {
@@ -134,6 +136,23 @@ namespace FiveVibe
                 Dictionary<string,object> message;
                 try { message = new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(Encoding.UTF8.GetString(body)); }
                 catch (Exception) { Reply(stream,400,"{}",false); return; }
+                if(first[1]=="/api/favorites")
+                {
+                    object action,name,id,mode;var command=new CompanionCommand();
+                    if(message==null || !message.TryGetValue("action",out action) || !(action is string)) {Reply(stream,400,"{}",false);return;}
+                    if((string)action=="save" && message.Count==2 && message.TryGetValue("name",out name) && name is string)
+                    {
+                        try {command.FavoriteName=FavoriteStore.CleanName((string)name);}
+                        catch(ArgumentException) {Reply(stream,400,"{}",false);return;}
+                        command.FavoriteAction="save";
+                    }
+                    else if((string)action=="go" && message.Count==3 && message.TryGetValue("id",out id) && id is string && FavoriteStore.ValidId((string)id) &&
+                        message.TryGetValue("mode",out mode) && mode is string && ((string)mode=="drive" || (string)mode=="walk"))
+                    {command.FavoriteAction="go";command.FavoriteId=(string)id;command.FavoriteMode=(string)mode;}
+                    else {Reply(stream,400,"{}",false);return;}
+                    lock(commands) {if(commands.Count>=8) {Reply(stream,429,"{}",false);return;}commands.Enqueue(command);}
+                    Reply(stream,202,"{\"queued\":true}",false);return;
+                }
                 if(first[1]=="/api/location")
                 {
                     var command=new CompanionCommand {Location=true}; object city,lat,lon;

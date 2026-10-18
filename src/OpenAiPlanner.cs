@@ -65,6 +65,7 @@ namespace FiveVibe
                 { "tool_choice", new { type = "function", name = "plan_game_action" } }
             };
             body["instructions"]="Radio actions never change movement, route, camera or Mission Pilot. radio_set selects a named vehicle radio station using its catalog Station ID; radio_off turns it off with Station=none. Use Actor=current, Place=none, Target=nearest, VehicleType=any and neutral world settings. Station=none for ALL non-radio_set actions. Never invent a station, play a song or claim unavailable stations work. Ask for a supported station if the name is unknown or ambiguous. Radio catalog: "+RadioCatalog.Describe()+".\n"+body["instructions"];
+            body["instructions"]="Saved favorites are catalog destinations with fav_ IDs. Use place or walk_place to visit them, with Actor=current unless the user explicitly requested another protagonist. A favorite name does not request a character switch, radio or weather change. Local saving uses 'Save this place as NAME' or 'Salva qui come NOME'; you cannot save coordinates through the planner or claim a favorite was saved. If a favorite is missing, ask the player to save it or choose an existing one.\n"+body["instructions"];
             using (var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/responses"))
             {
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);

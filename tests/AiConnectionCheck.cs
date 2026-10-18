@@ -15,6 +15,24 @@ internal static class AiConnectionCheck
             if (!config.HasApiKey) { Console.WriteLine("No API key configured in the env file. No request sent."); return 2; }
             using (var planner = new OpenAiPlanner(config.ApiKey, config.Model))
             {
+                if(args.Length==2 && args[1]=="--favorites")
+                {
+                    const string home="fav_00000000000000000000000000000001",quiet="fav_00000000000000000000000000000002",trevor="fav_00000000000000000000000000000003";
+                    PlaceCatalog.SetFavorites(new[]{new FavoritePlace{Id=home,Name="Casa sul lago",X=111,Y=222,Z=33},new FavoritePlace{Id=quiet,Name="Quiet Spot",X=111,Y=222,Z=33},new FavoritePlace{Id=trevor,Name="Trevor spot",X=111,Y=222,Z=33}});
+                    try
+                    {
+                        string[] prompts={"Vorrei tornare al mio preferito Casa sul lago, guidando con calma.","Walk to favorite Quiet Spot.","Take me to favorite Trevor spot.","Go to favorite Atlantis. It is not saved."};
+                        string[] actions={"place","walk_place","place","say"};string[] places={home,quiet,trevor,"none"};
+                        for(int i=0;i<prompts.Length;i++)
+                        {
+                            var result=planner.PlanAsync(prompts[i],"SYNTHETIC TEST: character=michael; driving=driving; in_vehicle=true; mission_active=false",new string[0],CancellationToken.None).GetAwaiter().GetResult();
+                            bool ok=result.Action==actions[i] && result.Place==places[i] && result.Actor=="current";
+                            Console.WriteLine("Favorite case "+(i+1)+": "+result.Action+" / "+result.Place+" / "+(ok?"OK":"UNEXPECTED"));if(!ok)return 3;
+                        }
+                        Console.WriteLine("Favorite interpretation passed. Synthetic names/coordinates only; no action sent to GTA.");return 0;
+                    }
+                    finally {PlaceCatalog.SetFavorites(null);}
+                }
                 if(args.Length==2 && args[1]=="--radio")
                 {
                     string[] prompts={"Mi metti Radio Mirror Park mentre continui il giro?","I'd like to listen to Los Santos Rock Radio.","Spegni la radio, ma continua a guidare.","Play Non-Stop-Pop FM.","Play Radio Atlantis, the fictional station."};
