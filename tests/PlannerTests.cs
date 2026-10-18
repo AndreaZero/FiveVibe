@@ -131,6 +131,42 @@ internal static class PlannerTests
             Check(HudText.Wrap("prima\n\nultima", 20, proportional).SequenceEqual(new[] { "prima", "", "ultima" }), "Paragrafi conservati");
             string tail = HudText.Tail("WWWW destinazione lontana", 12, proportional);
             Check(tail.StartsWith("...") && proportional(tail) <= 12 && tail.EndsWith("lontana"), "Etichette lunghe contenute nel mini HUD");
+            foreach(int length in new[]{33,98,99,100,200,420}) {
+                string input=new string('W',length-4)+"TAIL";
+                Check(RenderNative(input)==input,"Native text renders beyond the old 32-character boundary: "+length);
+            }
+            string accented=string.Concat(Enumerable.Repeat("\u00e8\u4e00\U0001f697",100));
+            Check(string.Concat(HudText.NativeChunks(accented))==accented && HudText.NativeChunks(accented).All(s=>System.Text.Encoding.UTF8.GetByteCount(s)<=99),"Native components respect UTF-8 byte limits and preserve Unicode");
+            string composer=new string('W',416)+"TAIL";
+            var composerLines=HudText.Wrap(composer,40,s=>RenderNative(s).Length);
+            int inputScroll=0;
+            Check(HudText.InputWindow(composerLines,3,ref inputScroll).Last().EndsWith("TAIL"),"420-character composer follows the latest text");
+            inputScroll=999;
+            Check(HudText.InputWindow(composerLines,3,ref inputScroll).First()==composerLines.First() && inputScroll==composerLines.Length-3,"Input can scroll back to the first lines");
+            inputScroll=0;
+            Check(HudText.InputWindow(composerLines,3,ref inputScroll).SequenceEqual(composerLines.Skip(composerLines.Length-3)),"Input scroll returns to the tail");
+            var rain=LocalPlanner.Parse("Metti pioggia e imposta ora alle 22:30",45);
+            Check(rain.Action=="world_settings" && rain.WeatherType=="rain" && rain.Hour==22 && rain.Minute==30,"Combined Italian weather and time request");
+            Check(LocalPlanner.Parse("Set time to 18:45",45).Hour==18 && LocalPlanner.Parse("Set time to 18:45",45).Minute==45,"Custom clock time");
+            Check(LocalPlanner.Parse("Metti il tramonto",45).Hour==19,"Named sunset preset");
+            Check(LocalPlanner.Parse("Freeze the clock",45).Clock=="pause" && LocalPlanner.Parse("Resume the clock",45).Clock=="resume","Clock pause and resume");
+            Check(LocalPlanner.Parse("Hide the task HUD",45).Action=="hud_hide" && LocalPlanner.Parse("mostra HUD",45).Action=="hud_show","HUD display commands");
+            Check(LocalPlanner.Parse("Do not hide the HUD",45).Action=="say" && LocalPlanner.Parse("I like rain",45).Action=="say","Mentions and negations do not change world or HUD");
+            Check(LocalPlanner.Parse("Set time to 25:90",45).Action=="say","Invalid local time rejected");
+            Reject(()=>CommandPlan.World("rain",24),"Invalid structured hour rejected");
+            Reject(()=>CommandPlan.World("rain",-1,30),"Minutes without an hour rejected");
+            Reject(()=>CommandPlan.World("hurricane"),"Unknown structured weather rejected");
+            Reject(()=>CommandPlan.World(),"Empty world action rejected");
+            var wrongWorld=CommandPlan.Create("cruise","current",45); wrongWorld.WeatherType="rain";
+            Reject(()=>wrongWorld.Validate(),"Movement cannot smuggle a weather change");
+            var preferences=Path.Combine(Path.GetTempPath(),"FiveVibe-test-"+Guid.NewGuid().ToString("N")+".json");
+            try {
+                Check(HudPreferences.Load(preferences,true),"HUD preference defaults from INI");
+                HudPreferences.Save(preferences,false);
+                Check(!HudPreferences.Load(preferences,true),"Hidden HUD persists across sessions");
+                HudPreferences.Save(preferences,true);
+                Check(HudPreferences.Load(preferences,false),"HUD preference can be restored atomically");
+            } finally { if(File.Exists(preferences))File.Delete(preferences); }
             var envValues = AiConfiguration.Parse("\uFEFF# comment\nexport OPENAI_API_KEY = 'test-only-key' # local\nOPENAI_MODEL=\"gpt-4.1-mini\"\nOTHER=value\n");
             Check(envValues["OPENAI_API_KEY"] == "test-only-key" && envValues["OPENAI_MODEL"] == "gpt-4.1-mini", "Env con BOM, commenti, virgolette ed export");
             Check(envValues.Count == 2, "Nessuna variabile estranea viene caricata");
@@ -177,6 +213,15 @@ internal static class PlannerTests
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
     }
 
+    private static string RenderNative(string text)
+    {
+        string label="", rendered=""; int components=0;
+        HudText.PushNative(text,value=>label=value,chunk=> {
+            if(label=="CELL_EMAIL_BCON" || components==0) rendered+=chunk;
+            components++;
+        });
+        return rendered;
+    }
     private sealed class PlannerHandler : HttpMessageHandler
     {
         private readonly string response;

@@ -18,12 +18,12 @@ $sources = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src') -Filter '
 $pageResource = '/resource:' + (Join-Path $projectRoot 'companion\index.html') + ',FiveVibe.Companion.html'
 & $compiler @commonArgs '/target:library' ('/out:' + (Join-Path $distRoot 'scripts\FiveVibe.dll')) ('/reference:' + $apiDll) $pageResource @sources
 if ($LASTEXITCODE -ne 0) { throw 'Mod compilation failed.' }
-$testSources = @('src\PlaceCatalog.cs','src\CommandPlan.cs','src\OpenAiPlanner.cs','src\AiConfiguration.cs','src\HudLayout.cs','tests\PlannerTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
+$testSources = @('src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','src\OpenAiPlanner.cs','src\AiConfiguration.cs','src\HudLayout.cs','tests\PlannerTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
 & $compiler @commonArgs '/target:exe' ('/out:' + (Join-Path $buildRoot 'PlannerTests.exe')) @testSources
 if ($LASTEXITCODE -ne 0) { throw 'Check compilation failed.' }
 & (Join-Path $buildRoot 'PlannerTests.exe')
 if ($LASTEXITCODE -ne 0) { throw 'Checks failed.' }
-$probeSources = @('src\PlaceCatalog.cs','src\CommandPlan.cs','src\OpenAiPlanner.cs','src\AiConfiguration.cs','tests\AiConnectionCheck.cs') | ForEach-Object { Join-Path $projectRoot $_ }
+$probeSources = @('src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','src\OpenAiPlanner.cs','src\AiConfiguration.cs','tests\AiConnectionCheck.cs') | ForEach-Object { Join-Path $projectRoot $_ }
 & $compiler @commonArgs '/target:exe' ('/out:' + (Join-Path $buildRoot 'AiConnectionCheck.exe')) @probeSources
 if ($LASTEXITCODE -ne 0) { throw 'AI connection check compilation failed.' }
 $companionSources = @('src\CompanionServer.cs','tests\CompanionTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }

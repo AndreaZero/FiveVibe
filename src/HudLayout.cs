@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text;
 
 namespace FiveVibe
 {
@@ -8,7 +9,7 @@ namespace FiveVibe
     public sealed class HudLayout
     {
         public readonly float Aspect, Left, Right, Top, Width, Height, Padding;
-        public float HistoryTop { get { return Top + .153f; } }
+        public float HistoryTop { get { return Top + .194f; } }
         public float HistoryBottom { get { return Top + .520f; } }
         public float QuickTop { get { return Top + .546f; } }
         public float InputTop { get { return Top + .596f; } }
@@ -29,6 +30,36 @@ namespace FiveVibe
 
     public static class HudText
     {
+        // STRING accepts a single substitution. CELL_EMAIL_BCON supports the
+        // concatenated components required by both drawing and width measurement.
+        public static void PushNative(string text, Action<string> begin, Action<string> append)
+        {
+            begin("CELL_EMAIL_BCON");
+            foreach (string chunk in NativeChunks(text)) append(chunk);
+        }
+        public static string[] NativeChunks(string text)
+        {
+            var chunks = new List<string>();
+            text = text ?? "";
+            int start = 0, bytes = 0;
+            for (int i = 0; i < text.Length; )
+            {
+                int count = char.IsHighSurrogate(text[i]) && i + 1 < text.Length && char.IsLowSurrogate(text[i+1]) ? 2 : 1;
+                int nextBytes = Encoding.UTF8.GetByteCount(text.Substring(i,count));
+                if (bytes + nextBytes > 99) { chunks.Add(text.Substring(start,i-start)); start=i; bytes=0; }
+                bytes+=nextBytes; i+=count;
+            }
+            chunks.Add(text.Substring(start));
+            return chunks.ToArray();
+        }
+        public static string[] InputWindow(string[] lines, int capacity, ref int scrollBack)
+        {
+            scrollBack=Math.Max(0,Math.Min(scrollBack,Math.Max(0,lines.Length-capacity)));
+            int end=lines.Length-scrollBack, start=Math.Max(0,end-capacity);
+            var visible=new string[end-start];
+            Array.Copy(lines,start,visible,0,visible.Length);
+            return visible;
+        }
         // The game supplies real font measurements. Tests can run without GTA.
         public static string[] Wrap(string text, float width, Func<string, float> measure)
         {

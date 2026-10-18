@@ -15,6 +15,19 @@ internal static class AiConnectionCheck
             if (!config.HasApiKey) { Console.WriteLine("No API key configured in the env file. No request sent."); return 2; }
             using (var planner = new OpenAiPlanner(config.ApiKey, config.Model))
             {
+                if(args.Length==2 && args[1]=="--world-ui")
+                {
+                    string[] prompts={"Metti pioggia e imposta l'ora alle 22:30.","Nascondi il riquadro della task attiva, continua pure a guidare.","Freeze the clock.","Rimetti il meteo automatico e fai ripartire il tempo."};
+                    for(int i=0;i<prompts.Length;i++)
+                    {
+                        var worldPlan=planner.PlanAsync(prompts[i],"SYNTHETIC TEST: character=michael; driving=driving; in_vehicle=true; mission_active=false; task_hud_visible=true; clock_paused=false",new string[0],CancellationToken.None).GetAwaiter().GetResult();
+                        bool ok=i==0 ? worldPlan.Action=="world_settings" && worldPlan.WeatherType=="rain" && worldPlan.Hour==22 && worldPlan.Minute==30 :
+                            i==1 ? worldPlan.Action=="hud_hide" : i==2 ? worldPlan.Action=="world_settings" && worldPlan.Clock=="pause" : worldPlan.Action=="world_settings" && worldPlan.WeatherType=="auto" && worldPlan.Clock=="resume";
+                        Console.WriteLine("World/UI case "+(i+1)+": "+worldPlan.Action+" / "+(ok?"OK":"UNEXPECTED"));
+                        if(!ok) return 3;
+                    }
+                    Console.WriteLine("World/UI interpretation passed. No action sent to GTA.");return 0;
+                }
                 if (args.Length==2 && args[1]=="--places")
                 {
                     string[] texts={"Portami a Paleto Bay, guida senza fretta.","Let's take a walk to Mirror Park.","Drive to Sandy Shores Airfield.","Mi piacerebbe andare al molo con la ruota panoramica.","Take me to Atlantis.","Go to Michael's house."};

@@ -9,6 +9,7 @@ using System.Web.Script.Serialization;
 using GTA;
 using GTA.Math;
 using GTA.Native;
+using GTA.Chrono;
 
 namespace FiveVibe
 {
@@ -45,6 +46,9 @@ namespace FiveVibe
         private string destinationLabel = "Waypoint";
         private CompanionServer companion;
         private long lastCompanionUpdate;
+        private readonly string preferencesPath;
+        private readonly Keys hudKey;
+        private bool ownsClockPause, ownsWeather;
 
         public FiveVibeScript()
         {
@@ -58,7 +62,13 @@ namespace FiveVibe
             if (takeoverKey == openKey) takeoverKey = Keys.F8 == openKey ? Keys.F9 : Keys.F8;
             speedKmh = Math.Max(15, Math.Min(90, settings.GetValue("Driving", "CruiseSpeedKmh", 45)));
             searchRadius = Math.Max(20, Math.Min(150, settings.GetValue("Driving", "SearchRadiusMeters", 100)));
-            chat.ShowDrivingHud = settings.GetValue("HUD", "CompactDrivingHud", true);
+            preferencesPath=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"FiveVibe","preferences.json");
+            bool hudDefault=settings.GetValue("HUD","ShowTaskHud",settings.GetValue("HUD", "CompactDrivingHud", true));
+            try { chat.ShowDrivingHud=HudPreferences.Load(preferencesPath,hudDefault); }
+            catch(Exception) { chat.ShowDrivingHud=hudDefault; }
+            hudKey=settings.GetValue("HUD","ToggleKey",Keys.F9);
+            if(hudKey==openKey || hudKey==takeoverKey) hudKey=Keys.F10;
+            chat.HudToggleKeyName=hudKey.ToString();
             chat.InterfaceSounds = settings.GetValue("HUD", "InterfaceSounds", true);
             string provider = settings.GetValue("AI", "Provider", "Local");
             useOpenAi = provider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase);
@@ -74,7 +84,7 @@ namespace FiveVibe
             chat.Add(false, "FiveVibe ready. " + openKey + " opens chat. Write a request or choose a suggestion. " + takeoverKey + " gives you control immediately.");
             Tick += OnTick;
             KeyDown += OnKey;
-            Aborted += delegate { CancelPlanning(); worldActions.Cancel(); ReleaseControl(); chat.Dispose(); if (planner != null) planner.Dispose(); if (companion != null) companion.Dispose(); };
+            Aborted += delegate { CancelPlanning(); worldActions.Cancel(); ReleaseControl(); ResetWorldOverrides(); chat.Dispose(); if (planner != null) planner.Dispose(); if (companion != null) companion.Dispose(); };
             Interval = 0;
         }
 
@@ -83,6 +93,7 @@ namespace FiveVibe
             try
             {
                 if (e.KeyCode == takeoverKey) { chat.IsOpen = false; Stop("You have control."); return; }
+                if (e.KeyCode == hudKey) { SetTaskHud(!chat.ShowDrivingHud); return; }
                 if (Game.IsPaused || Function.Call<bool>(Hash.IS_CUTSCENE_ACTIVE)) return;
                 if (e.KeyCode == Keys.F4 || e.KeyCode == Keys.F6) { chat.IsOpen = false; return; }
                 if (e.KeyCode == openKey) { chat.IsOpen = !chat.IsOpen; return; }
@@ -109,6 +120,7 @@ namespace FiveVibe
                 "character={0}; driving={1}; target_speed_kmh={2}; in_vehicle={3}; position=({4:0},{5:0},{6:0})",
                 ActorName(ped), phase, speedKmh, ped.IsInVehicle(), ped.Position.X, ped.Position.Y, ped.Position.Z);
             context += worldActions.Context();
+            context+="; task_hud_visible="+chat.ShowDrivingHud+"; clock_paused="+GameClock.IsPaused+"; game_time="+ClockLabel()+"; weather="+World.Weather;
             string[] history = chat.Messages.Skip(Math.Max(0, chat.Messages.Count - 10)).Select(m => (m.User ? "utente: " : "mod: ") + m.Text).ToArray();
             planning = planner.PlanAsync(prompt, context, history, cancellation.Token);
             chat.Thinking = true;
@@ -121,6 +133,8 @@ namespace FiveVibe
                 UpdateCompanion();
                 if (Game.IsPaused) return;
                 bool missionActive = Function.Call<bool>(Hash.GET_MISSION_FLAG);
+                if(missionActive && !missionWasActive && (ownsClockPause || ownsWeather))
+                { ResetWorldOverrides(); chat.Add(false,"World overrides released for the mission."); }
                 if (missionActive && !missionWasActive && (phase != "idle" || worldActions.Active || planning != null))
                 {
                     CancelPlanning();
@@ -171,10 +185,15 @@ namespace FiveVibe
                 chat.HudColorId = actor == "franklin" ? 144 : actor == "trevor" ? 145 : 143;
                 chat.Autonomous = phase != "idle" || worldActions.Active;
                 chat.OnFoot = !Game.Player.Character.IsInVehicle();
+                chat.WorldTime=ClockLabel();
+                chat.WeatherName=World.Weather.ToString();
+                chat.ClockFrozen=GameClock.IsPaused;
                 chat.CurrentSpeedKmh = vehicle != null && vehicle.Exists() ? (int)Math.Round(vehicle.Speed * 3.6f) : 0;
                 chat.Route = worldActions.Active ? worldActions.GoalLabel : hasDestination && drivingPlan != null ? "To " + destinationLabel : "Free roam";
                 string clickedCommand = chat.Draw(openKey.ToString(), takeoverKey.ToString());
                 if (clickedCommand != null) Submit(clickedCommand);
+                var uiPlan=chat.TakeUiPlan();
+                if(uiPlan!=null) { if(uiPlan.Message.Length>0) chat.Add(true,uiPlan.Message); Execute(uiPlan); }
             }
             catch (Exception error) { Fail(error); }
         }
@@ -196,6 +215,8 @@ namespace FiveVibe
                 actor=CultureInfo.InvariantCulture.TextInfo.ToTitleCase(ActorName(Game.Player.Character)),
                 status=chat.Status, route=chat.Route, active=phase != "idle" || worldActions.Active,
                 paused=Game.IsPaused, thinking=chat.Thinking, provider=chat.Provider,
+                taskHudVisible=chat.ShowDrivingHud, clockFrozen=GameClock.IsPaused,
+                gameTime=ClockLabel(), weather=World.Weather.ToString(),
                 messages=chat.Messages.Select(m => new { user=m.User, text=m.Text }).ToArray(),
                 places=PlaceCatalog.All.Select(p => new { id=p.Id, name=p.Name }).ToArray()
             }));
@@ -243,6 +264,9 @@ namespace FiveVibe
             plan.Validate();
             if (plan.Action == "stop") { BrakeOrRelease(); return; }
             if (plan.Action == "say") { chat.Add(false, plan.Message); return; }
+            if(plan.Action.StartsWith("hud_",StringComparison.Ordinal))
+            { SetTaskHud(plan.Action=="hud_show" || (plan.Action=="hud_toggle" && !chat.ShowDrivingHud)); return; }
+            if(plan.Action=="world_settings") { ApplyWorldSettings(plan); return; }
             if (plan.Action == "help")
             {
                 chat.Add(false, "Walk, run, greet or follow nearby people, switch characters, use the phone, drive to named places or reach a mission marker. F8 takes over. " +
@@ -348,6 +372,44 @@ namespace FiveVibe
         }
 
         private void ClaimCar() { wasPersistent = vehicle.IsPersistent; vehicle.IsPersistent = true; claimedCar = true; }
+
+        private void SetTaskHud(bool visible)
+        {
+            chat.ShowDrivingHud=visible;
+            try { HudPreferences.Save(preferencesPath,visible); }
+            catch(Exception) { chat.Add(false,"HUD changed for this session; preferences could not be saved."); }
+            chat.Add(false,visible ? "Task HUD shown. "+hudKey+" toggles it." : "Task HUD hidden. Autonomy continues; "+takeoverKey+" still takes over.");
+        }
+        private void ApplyWorldSettings(CommandPlan plan)
+        {
+            if(Function.Call<bool>(Hash.NETWORK_IS_SESSION_ACTIVE)) { chat.Add(false,"World controls are available in Story Mode."); return; }
+            if(Function.Call<bool>(Hash.GET_MISSION_FLAG) || Function.Call<bool>(Hash.IS_CUTSCENE_ACTIVE) || !Game.Player.CanControlCharacter)
+            { chat.Add(false,"Weather and time controls are available in free roam after the game returns control."); return; }
+            if(plan.WeatherType=="auto")
+            {
+                Function.Call(Hash.CLEAR_OVERRIDE_WEATHER);
+                Function.Call(Hash.CLEAR_WEATHER_TYPE_PERSIST);
+                ownsWeather=false;
+            }
+            else if(plan.WeatherType!="none")
+            { Function.Call(Hash.SET_WEATHER_TYPE_NOW_PERSIST,WorldControlParser.WeatherCode(plan.WeatherType)); ownsWeather=true; }
+            if(plan.Hour>=0) Function.Call(Hash.SET_CLOCK_TIME,plan.Hour,plan.Minute,0);
+            if(plan.Clock!="unchanged")
+            { ownsClockPause=plan.Clock=="pause"; Function.Call(Hash.PAUSE_CLOCK,ownsClockPause); }
+            chat.ClockFrozen=ownsClockPause;
+            var changes=new System.Collections.Generic.List<string>();
+            if(plan.WeatherType!="none") changes.Add(plan.WeatherType=="auto" ? "Automatic weather restored" : "Weather set to "+plan.WeatherType);
+            if(plan.Hour>=0) changes.Add("Time set to "+ClockLabel());
+            if(plan.Clock!="unchanged") changes.Add(ownsClockPause ? "Clock frozen" : "Clock resumed");
+            chat.Add(false,string.Join(". ",changes)+".");
+        }
+        private void ResetWorldOverrides()
+        {
+            if(ownsClockPause) Function.Call(Hash.PAUSE_CLOCK,false);
+            if(ownsWeather) { Function.Call(Hash.CLEAR_OVERRIDE_WEATHER); Function.Call(Hash.CLEAR_WEATHER_TYPE_PERSIST); }
+            ownsClockPause=ownsWeather=false;
+        }
+        private static string ClockLabel() { return GameClock.Hour.ToString("00",CultureInfo.InvariantCulture)+":"+GameClock.Minute.ToString("00",CultureInfo.InvariantCulture); }
 
         private void StartDriving()
         {

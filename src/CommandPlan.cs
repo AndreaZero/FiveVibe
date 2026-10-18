@@ -16,12 +16,19 @@ namespace FiveVibe
         public string Pace { get; set; }
         public string Target { get; set; }
         public int DistanceMeters { get; set; }
+        public string WeatherType { get; set; }
+        public int Hour { get; set; }
+        public int Minute { get; set; }
+        public string Clock { get; set; }
 
-        public CommandPlan() { Pace = "walk"; Target = "nearest"; DistanceMeters = 25; }
+        public CommandPlan() { Pace = "walk"; Target = "nearest"; DistanceMeters = 25; WeatherType="none"; Hour=-1; Clock="unchanged"; }
 
         public static readonly string[] Actions = { "cruise", "waypoint", "place", "speed", "stop", "leave", "help", "say",
             "walk_wander", "walk_forward", "walk_waypoint", "walk_place", "approach_npc", "greet_npc", "follow_npc",
-            "switch_character", "phone_open", "phone_answer", "phone_hangup", "interact", "mission", "mission_status" };
+            "switch_character", "phone_open", "phone_answer", "phone_hangup", "interact", "mission", "mission_status",
+            "world_settings", "hud_show", "hud_hide", "hud_toggle" };
+        public static readonly string[] WeatherTypes={"none","auto","clear","sunny","clouds","fog","overcast","rain","thunder","smog","clearing","snow","blizzard","christmas"};
+        public static readonly string[] ClockModes={"unchanged","pause","resume"};
         public static readonly string[] Actors = { "current", "michael", "franklin", "trevor" };
         public static string[] Places { get { return PlaceCatalog.Ids; } }
         public static readonly string[] Paces = { "walk", "jog", "run" };
@@ -45,6 +52,10 @@ namespace FiveVibe
                 throw new ArgumentException("This action does not use an NPC or mission target.");
             if (Action == "mission" && (Target == "ahead" || Target == "current"))
                 throw new ArgumentException("Invalid mission selection.");
+            if (!WeatherTypes.Contains(WeatherType) || !ClockModes.Contains(Clock) || Hour < -1 || Hour > 23 || Minute < 0 || Minute > 59 || (Hour==-1 && Minute!=0))
+                throw new ArgumentException("Invalid weather or clock settings.");
+            bool changesWorld=WeatherType!="none" || Hour!=-1 || Clock!="unchanged";
+            if ((Action=="world_settings") != changesWorld) throw new ArgumentException("World settings do not match the action.");
             Message = (Message ?? "").Trim();
             if (Message.Length > 240) Message = Message.Substring(0, 240);
         }
@@ -54,6 +65,11 @@ namespace FiveVibe
             var plan = new CommandPlan { Action = action, Actor = actor, SpeedKmh = speed, Place = place, Message = message, Pace = pace, Target = target, DistanceMeters = distance };
             plan.Validate();
             return plan;
+        }
+        public static CommandPlan World(string weather="none", int hour=-1, int minute=0, string clock="unchanged")
+        {
+            var plan=new CommandPlan { Action="world_settings", Actor="current", SpeedKmh=45, Place="none", WeatherType=weather, Hour=hour, Minute=minute, Clock=clock };
+            plan.Validate(); return plan;
         }
     }
 
@@ -80,6 +96,8 @@ namespace FiveVibe
             int speed = Math.Max(15, Math.Min(90, currentSpeed));
             string actor = Has(text, "michael|micheal") ? "michael" : Has(text, "franklin") ? "franklin" : Has(text, "trevor") ? "trevor" : "current";
             if (IsImmediateStop(text)) return CommandPlan.Create("stop", "current", speed);
+            CommandPlan worldPlan;
+            if (WorldControlParser.TryParse(text,out worldPlan)) return worldPlan;
             if (Has(text, "non|mai|senza|poi|oppure|not|never|then|or") || Has(text, "spara|uccidi|compra|vola|elicottero|aereo|teletrasporta|spawn|insegui|shoot|kill|teleport"))
                 return Say("In local mode, try a simple request: cruise, drive to Paleto Bay, walk to the waypoint, or stop.");
             if (Has(text, "aiuto|help|comandi|ciao")) return CommandPlan.Create("help", actor, speed);

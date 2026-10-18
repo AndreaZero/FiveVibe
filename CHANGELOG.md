@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0 — Chat, places and world controls
+
+- Fix native input and text measurement truncating multi-component text around 32 characters.
+- Keep 420-character requests readable with three visible lines and input scrolling.
+- Add Chat / Places / Ideas / World / HUD tabs with paged destinations and request suggestions.
+- Add free-roam weather, custom time, clock freeze/resume and combined ambience requests.
+- Add persistent task HUD visibility, F9, and matching browser controls.
+- Release owned weather/clock overrides for story transitions and script unload.
+
 ## 0.5.0 — FiveVibe
 
 - Rebrand the project, native HUD and replies in English.

@@ -10,7 +10,7 @@ An open-source AI companion for GTA V Enhanced Story Mode. Give your character a
 
 FiveVibe includes a native in-game chat and a local browser companion. Requests can be written in English or Italian; the interface and assistant replies are in English.
 
-**Status: experimental, v0.5.0.** Driving has been confirmed by the original user. New walking, phone, character switching and mission assistance still need broader in-game testing. The browser's HTTP interface is tested independently; background gameplay depends on GTA continuing to run while unfocused.
+**Status: experimental, v0.6.0.** Driving has been confirmed by the original user. New walking, phone, character switching and mission assistance still need broader in-game testing. The browser's HTTP interface is tested independently; background gameplay depends on GTA continuing to run while unfocused.
 
 ## What you can do
 
@@ -102,6 +102,7 @@ Set Enabled=false to disable the browser listener or choose a free port. There i
 | Enter | Send |
 | Esc | Close chat |
 | F8 | Cancel pending AI and autonomy; take over |
+| F9 | Show / hide the active task HUD |
 | Tab / Shift+Tab | Fill a quick request |
 | Up / Down | Recall requests |
 | Page Up / Page Down / mouse wheel | Scroll conversation |
@@ -109,6 +110,22 @@ Set Enabled=false to disable the browser listener or choose a free port. There i
 | Insert | SHVDNE reload, with its default binding |
 
 The HUD uses GTA fonts, menu textures, protagonist colours, notification feed and instructional buttons. Native Trainer and the SHVDNE console have their own keys; the source installer assigns a new SHVDNE console configuration to F6 to avoid a common F4 conflict.
+
+## Chat menus, world controls and a clean screen
+
+The native chat has five tabs: **Chat, Places, Ideas, World, HUD**. Click a tab or use Ctrl+Left/Right. Places lists every built-in and custom location, with Drive/Walk selection; Ideas provides ready-to-edit requests. Choosing a place or idea fills the composer: press Enter to send. Page Up/Down or the mouse wheel browses pages. Esc first returns from a submenu to Chat.
+
+The composer supports 420 characters. Long input follows the latest three lines; use Shift+Page Up/Down or the wheel over the composer to read earlier lines. Text drawing and width measurement use GTA's multi-component text command with UTF-8-safe components, fixing the former disappearance after roughly 32 characters.
+
+World provides weather presets, 06:00 / 12:00 / 19:00 / 00:00 and Freeze/Resume Clock buttons. These controls apply immediately in free roam. You can also ask:
+
+> “Set rain and set the time to 22:30.”
+>
+> “Metti il tramonto.” · “Freeze the clock.” · “Restore automatic weather and resume the clock.”
+
+Weather/time changes leave an active drive or walk running. The story retains control during missions and cutscenes; FiveVibe releases its weather/clock overrides when a mission starts or the script unloads. Automatic weather releases the manual weather override rather than selecting a new preset.
+
+**F9** shows/hides the on-screen task panel and its closed-chat hints, without stopping autonomy. The HUD tab, browser button and requests such as “Hide the task HUD” do the same. F8 still takes over. This preference is saved per Windows user in %LOCALAPPDATA%\FiveVibe\preferences.json. The INI supports [HUD] ShowTaskHud and ToggleKey as defaults; a saved preference takes precedence for visibility.
 
 ## What is still limited
 
