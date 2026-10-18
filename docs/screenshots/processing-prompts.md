@@ -1,6 +1,14 @@
 # Screenshot processing prompts
 
-The originals were supplied by the project author on 18 October 2026. The three highlighted presentation versions were made with the built-in imagegen tool. They are AI-assisted edits, not unmodified captures. Original PNGs are retained alongside them. No CLI/API fallback was used.
+## Pool chat
+
+Use case: precise screenshot emphasis. Edit target: this actual GTA V windowed capture with FiveVibe chat at the right and Michael by a pool. Make a clean presentation version of the exact supplied capture. Crop away ONLY the Windows title bar and outer window border; keep the game viewport and original composition. Preserve the original character, pool, buildings, map, in-game message and entire FiveVibe chat interface. Add a restrained dark translucent vignette outside the chat panel, a thin cyan outline around the EXISTING chat panel and a small external label 'NATIVE CHAT' at upper left in the game scene's unused space. Preserve all chat text and controls verbatim: 'FiveVibe ready. F7 opens chat. Write a request or choose a suggestion. F8 gives you control immediately.' and complete ENTER Send / TAB Quick / ESC Close / F8 Take over labels. The chat is mostly empty: DO NOT invent a conversation or add any messages. Do not invent controls or redraw the UI layout, do not change character identity or pose or generate a different scene. Do not translate or correct any captured text. It should remain an honestly annotated real screenshot, with the chat more prominent.
+
+## Wide driving view
+
+Use case: precise screenshot emphasis. Edit target: this actual wide GTA V driving capture with FiveVibe task HUD near lower right. Crop away only the Windows title bar and outer window border, keeping all game content, native minimap and keyboard hints. Preserve the original wide driving viewpoint, distant car, street, trees, traffic, dusk lighting, depth of field and HUD contents. Make the EXISTING HUD easier to notice with a fine cyan outline and restrained shadow/glow, while the rest of the picture has only a very subtle contrast refinement. Add a small quiet external label 'DRIVING VIEW' in the unused upper-left sky area. Keep the HUD text sharp and unchanged: 'FIVEVIBE', 'Chill drive / 45 km/h', 'To Vespucci Beach', current speed '45', 'KM/H'. Preserve 'F7 Open chat' and 'F8 Take over'. Do not invent controls, messages, route lines or new UI, do not enlarge or move the car, do not substitute a different road or weather, do not synthesize a new scene, do not alter numbers or words. Result must be a faithful presentation edit of the supplied capture with the real HUD emphasized, not concept artwork.
+
+The originals were supplied by the project author on 18 October 2026. The five highlighted presentation versions were made with the built-in imagegen tool. They are AI-assisted edits, not unmodified captures. Original PNGs are retained alongside them. No CLI/API fallback was used.
 
 ## Chat
 
