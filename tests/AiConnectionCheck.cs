@@ -15,6 +15,19 @@ internal static class AiConnectionCheck
             if (!config.HasApiKey) { Console.WriteLine("No API key configured in the env file. No request sent."); return 2; }
             using (var planner = new OpenAiPlanner(config.ApiKey, config.Model))
             {
+                if(args.Length==2 && args[1]=="--camera")
+                {
+                    string[] prompts={"Vorrei guardare il tragitto come un film, con riprese dinamiche. Continua pure a guidare.","Metti la visuale in prima persona.","Passa alla telecamera cinema originale di GTA.","Torna alla camera normale, senza fermare il viaggio."};
+                    string[] expected={"camera_cinema","camera_first","camera_native","camera_gameplay"};
+                    for(int i=0;i<prompts.Length;i++)
+                    {
+                        var cameraPlan=planner.PlanAsync(prompts[i],"SYNTHETIC TEST: character=michael; driving=driving; in_vehicle=true; spectator_camera=Gameplay; mission_active=false",new string[0],CancellationToken.None).GetAwaiter().GetResult();
+                        bool ok=cameraPlan.Action==expected[i] && cameraPlan.Actor=="current";
+                        Console.WriteLine("Camera case "+(i+1)+": "+cameraPlan.Action+" / "+(ok?"OK":"UNEXPECTED"));
+                        if(!ok) return 3;
+                    }
+                    Console.WriteLine("Camera interpretation passed. No action sent to GTA."); return 0;
+                }
                 if(args.Length==2 && args[1]=="--mission")
                 {
                     string[] prompts={"Completa da solo Franklin e Lamar, leggi gli obiettivi e prosegui fino alla fine.","Start Mission Pilot for Franklin and Lamar.","Completa il Prologo da solo.","A che punto sei con la missione?"};

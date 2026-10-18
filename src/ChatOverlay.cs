@@ -26,6 +26,8 @@ namespace FiveVibe
         public bool ClockFrozen;
         public string WorldTime="", WeatherName="";
         public string HudToggleKeyName="F9";
+        public string CameraMode="Gameplay", CameraState="Gameplay", CameraKeyName="F10";
+        public bool CameraLetterbox=true;
         public bool ShowDrivingHud = true, InterfaceSounds = true;
         public int CurrentSpeedKmh, HudColorId = 143;
         public readonly List<ChatMessage> Messages = new List<ChatMessage>();
@@ -43,7 +45,7 @@ namespace FiveVibe
         private int menuTab, menuPage;
         private bool walkToPlace;
         private CommandPlan pendingUiPlan;
-        private static readonly string[] MenuTabs={"CHAT","PLACES","IDEAS","WORLD","HUD"};
+        private static readonly string[] MenuTabs={"CHAT","PLACES","IDEAS","WORLD","HUD","CAMERA"};
         public CommandPlan TakeUiPlan() { var result=pendingUiPlan; pendingUiPlan=null; return result; }
         private Scaleform instructions;
         private string instructionState;
@@ -253,7 +255,7 @@ namespace FiveVibe
 
         private void DrawTabs(HudLayout box,float mx,float my,bool click)
         {
-            float gap=.004f/box.Aspect, width=(box.TextWidth-gap*4)/5;
+            float gap=.004f/box.Aspect, width=(box.TextWidth-gap*(MenuTabs.Length-1))/MenuTabs.Length;
             for(int i=0;i<MenuTabs.Length;i++)
             {
                 float left=box.Left+box.Padding+i*(width+gap);
@@ -315,6 +317,22 @@ namespace FiveVibe
                     QueueWorld(CommandPlan.World("none",-1,0,ClockFrozen?"resume":"pause"),ClockFrozen?"Resume clock":"Freeze clock");
                 Text("Free roam only. For a custom time, type",left,y+.468f,.225f,Muted);
                 Text("Set time to 18:45 in the chat.",left,y+.492f,.225f,Muted);
+            }
+            else if(menuTab==5)
+            {
+                Text("WATCH THE WORLD  /  "+CameraMode.ToUpperInvariant(),left,y+.195f,.225f,Muted);
+                string[] labels={"Gameplay camera","First person / cockpit","Third person","Cinema director / dynamic shots","GTA native cinema"};
+                string[] actions={"camera_gameplay","camera_first","camera_third","camera_cinema","camera_native"};
+                string[] modes={"Gameplay","First person","Third person","Cinema director","GTA cinema"};
+                for(int i=0;i<labels.Length;i++)
+                    if(Button(labels[i],left,y+.226f+i*.037f,width,.032f,mx,my,click,CameraMode==modes[i]))
+                        pendingUiPlan=CommandPlan.Create(actions[i],"current",45,"none",labels[i]);
+                float gap=.006f/box.Aspect,half=(width-gap)/2;
+                if(Button("Next shot",left,y+.419f,half,.033f,mx,my,click)) pendingUiPlan=CommandPlan.Create("camera_next","current",45,"none","Next cinema shot");
+                if(Button(CameraLetterbox?"Letterbox: ON":"Letterbox: OFF",left+half+gap,y+.419f,half,.033f,mx,my,click,CameraLetterbox))
+                    pendingUiPlan=CommandPlan.Create("camera_bars","current",45,"none","Toggle cinema letterbox");
+                Text(CameraKeyName+": change view. Shift+"+CameraKeyName+": next shot.",left,y+.468f,.225f,Muted);
+                Text("F8 restores gameplay. Director watches AI actions.",left,y+.493f,.225f,Muted);
             }
             else
             {

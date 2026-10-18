@@ -18,17 +18,22 @@ $sources = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src') -Filter '
 $pageResource = '/resource:' + (Join-Path $projectRoot 'companion\index.html') + ',FiveVibe.Companion.html'
 & $compiler @commonArgs '/target:library' ('/out:' + (Join-Path $distRoot 'scripts\FiveVibe.dll')) ('/reference:' + $apiDll) $pageResource @sources
 if ($LASTEXITCODE -ne 0) { throw 'Mod compilation failed.' }
-$testSources = @('src\CharacterSwitchMonitor.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','src\OpenAiPlanner.cs','src\AiConfiguration.cs','src\HudLayout.cs','tests\PlannerTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
+$testSources = @('src\CameraDirectorLogic.cs','src\CharacterSwitchMonitor.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','src\OpenAiPlanner.cs','src\AiConfiguration.cs','src\HudLayout.cs','tests\PlannerTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
 & $compiler @commonArgs '/target:exe' ('/out:' + (Join-Path $buildRoot 'PlannerTests.exe')) @testSources
 if ($LASTEXITCODE -ne 0) { throw 'Check compilation failed.' }
 & (Join-Path $buildRoot 'PlannerTests.exe')
 if ($LASTEXITCODE -ne 0) { throw 'Checks failed.' }
-$missionSources = @('src\MissionFlow.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','tests\MissionTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
+$missionSources = @('src\CameraDirectorLogic.cs','src\MissionFlow.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','tests\MissionTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
 & $compiler @commonArgs '/target:exe' ('/out:' + (Join-Path $buildRoot 'MissionTests.exe')) @missionSources
 if ($LASTEXITCODE -ne 0) { throw 'Mission checks failed to compile.' }
 & (Join-Path $buildRoot 'MissionTests.exe')
 if ($LASTEXITCODE -ne 0) { throw 'Mission checks failed.' }
-$probeSources = @('src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','src\OpenAiPlanner.cs','src\AiConfiguration.cs','tests\AiConnectionCheck.cs') | ForEach-Object { Join-Path $projectRoot $_ }
+$cameraSources = @('src\CameraDirectorLogic.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','tests\CameraTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }
+& $compiler @commonArgs '/target:exe' ('/out:' + (Join-Path $buildRoot 'CameraTests.exe')) @cameraSources
+if ($LASTEXITCODE -ne 0) { throw 'Camera checks failed to compile.' }
+& (Join-Path $buildRoot 'CameraTests.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Camera checks failed.' }
+$probeSources = @('src\CameraDirectorLogic.cs','src\SessionSettings.cs','src\PlaceCatalog.cs','src\CommandPlan.cs','src\OpenAiPlanner.cs','src\AiConfiguration.cs','tests\AiConnectionCheck.cs') | ForEach-Object { Join-Path $projectRoot $_ }
 & $compiler @commonArgs '/target:exe' ('/out:' + (Join-Path $buildRoot 'AiConnectionCheck.exe')) @probeSources
 if ($LASTEXITCODE -ne 0) { throw 'AI connection check compilation failed.' }
 $companionSources = @('src\CompanionServer.cs','tests\CompanionTests.cs') | ForEach-Object { Join-Path $projectRoot $_ }

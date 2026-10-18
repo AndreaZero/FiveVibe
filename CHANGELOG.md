@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.0 — Spectator cameras
+
+- Add native first-person/cockpit and third-person views, the original GTA cinematic camera and a FiveVibe cinema director.
+- Cycle six director shots with slow drift, damped tracking, field-of-view adaptation, obstacle probes and optional letterbox.
+- Add F10 camera cycling, Shift+F10 next shot, a Camera tab, companion controls and English/Italian requests.
+- Preserve active drives, walks and Mission Pilot when changing the view; F8/Stop restores gameplay.
+- Yield during story scenes, fades, pause, death, protagonist switches and external script cameras. Clean up only owned cameras on release/unload.
+- Add framing, obstruction, timing and command regressions. Visual behavior remains unverified in-game.
+
 ## 0.7.0 — Experimental Franklin and Lamar Mission Pilot
 
 - Add a bounded full-flow attempt for the first driving mission, selected through English/Italian chat or the Ideas menu.

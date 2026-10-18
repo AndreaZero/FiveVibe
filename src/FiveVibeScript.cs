@@ -50,6 +50,8 @@ namespace FiveVibe
         private readonly Keys hudKey;
         private bool ownsClockPause, ownsWeather;
         private readonly MissionPilot missionPilot;
+        private readonly SpectatorCamera spectatorCamera;
+        private readonly Keys cameraKey;
 
         public FiveVibeScript()
         {
@@ -72,6 +74,11 @@ namespace FiveVibe
             hudKey=settings.GetValue("HUD","ToggleKey",Keys.F9);
             if(hudKey==openKey || hudKey==takeoverKey) hudKey=Keys.F10;
             chat.HudToggleKeyName=hudKey.ToString();
+            spectatorCamera=new SpectatorCamera(message=>chat.Add(false,message),settings.GetValue("Camera","Letterbox",true));
+            cameraKey=settings.GetValue("Camera","CycleKey",Keys.F10);
+            if(cameraKey==openKey || cameraKey==takeoverKey || cameraKey==hudKey || cameraKey==Keys.F4 || cameraKey==Keys.F6)
+                cameraKey=new[] {Keys.F10,Keys.F11,Keys.F12,Keys.F5}.First(k=>k!=openKey && k!=takeoverKey && k!=hudKey);
+            chat.CameraKeyName=cameraKey.ToString();
             chat.InterfaceSounds = settings.GetValue("HUD", "InterfaceSounds", true);
             string provider = settings.GetValue("AI", "Provider", "Local");
             useOpenAi = provider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase);
@@ -87,7 +94,7 @@ namespace FiveVibe
             chat.Add(false, "FiveVibe ready. " + openKey + " opens chat. Write a request or choose a suggestion. " + takeoverKey + " gives you control immediately.");
             Tick += OnTick;
             KeyDown += OnKey;
-            Aborted += delegate { CancelPlanning(); missionPilot.Cancel(false); worldActions.Cancel(); ReleaseControl(); ResetWorldOverrides(); chat.Dispose(); if (planner != null) planner.Dispose(); if (companion != null) companion.Dispose(); };
+            Aborted += delegate { CancelPlanning(); spectatorCamera.Dispose(); missionPilot.Cancel(false); worldActions.Cancel(); ReleaseControl(); ResetWorldOverrides(); chat.Dispose(); if (planner != null) planner.Dispose(); if (companion != null) companion.Dispose(); };
             Interval = 0;
         }
 
@@ -98,6 +105,8 @@ namespace FiveVibe
                 if (e.KeyCode == takeoverKey) { chat.IsOpen = false; Stop("You have control."); return; }
                 if (e.KeyCode == hudKey) { SetTaskHud(!chat.ShowDrivingHud); return; }
                 if (Game.IsPaused || Function.Call<bool>(Hash.IS_CUTSCENE_ACTIVE)) return;
+                if(e.KeyCode==cameraKey) { spectatorCamera.Execute(e.Shift?"camera_next":"camera_cycle"); return; }
+                if(e.KeyCode==Keys.V && !chat.IsOpen) spectatorCamera.Reset();
                 if (e.KeyCode == Keys.F4 || e.KeyCode == Keys.F6) { chat.IsOpen = false; return; }
                 if (e.KeyCode == openKey) { chat.IsOpen = !chat.IsOpen; return; }
                 if (!chat.IsOpen) return;
@@ -112,8 +121,9 @@ namespace FiveVibe
             chat.Add(true, prompt);
             if (LocalPlanner.IsImmediateStop(prompt)) { BrakeOrRelease(); return; }
             if (Function.Call<bool>(Hash.NETWORK_IS_SESSION_ACTIVE)) { chat.Add(false, "FiveVibe runs in Story Mode."); return; }
-            CancelPlanning();
             var directPilot = LocalPlanner.Parse(prompt, speedKmh);
+            if(CameraCommands.IsCamera(directPilot.Action)) { Execute(directPilot); return; }
+            CancelPlanning();
             if (directPilot.Action == "mission_auto") { Execute(directPilot); return; }
             if (!useOpenAi) { Execute(LocalPlanner.Parse(prompt, speedKmh)); return; }
             if (!RefreshOpenAiConfiguration(true)) return;
@@ -126,6 +136,7 @@ namespace FiveVibe
                 ActorName(ped), phase, speedKmh, ped.IsInVehicle(), ped.Position.X, ped.Position.Y, ped.Position.Z);
             context += worldActions.Context();
             context += missionPilot.Context();
+            context += "; spectator_camera="+spectatorCamera.ModeName+"; camera_status="+spectatorCamera.Status;
             context+="; task_hud_visible="+chat.ShowDrivingHud+"; clock_paused="+GameClock.IsPaused+"; game_time="+ClockLabel()+"; weather="+World.Weather;
             string[] history = chat.Messages.Skip(Math.Max(0, chat.Messages.Count - 10)).Select(m => (m.User ? "utente: " : "mod: ") + m.Text).ToArray();
             planning = planner.PlanAsync(prompt, context, history, cancellation.Token);
@@ -137,7 +148,7 @@ namespace FiveVibe
             try
             {
                 UpdateCompanion();
-                if (Game.IsPaused) return;
+                if (Game.IsPaused) { spectatorCamera.Suspend(); return; }
                 missionPilot.Tick();
                 if (missionPilot.Active || missionPilot.Result != "pending")
                 {
@@ -161,6 +172,7 @@ namespace FiveVibe
                     ((Function.Call<bool>(Hash.IS_CUTSCENE_ACTIVE) || Function.Call<bool>(Hash.IS_PLAYER_SWITCH_IN_PROGRESS)) && !worldActions.Switching);
                 if (blocked)
                 {
+                    spectatorCamera.Suspend();
                     CancelPlanning();
                     worldActions.Cancel(false);
                     ReleaseControl(false);
@@ -199,6 +211,11 @@ namespace FiveVibe
                 chat.CharacterName = actor == "current character" ? "Player" : CultureInfo.InvariantCulture.TextInfo.ToTitleCase(actor);
                 chat.HudColorId = actor == "franklin" ? 144 : actor == "trevor" ? 145 : 143;
                 chat.Autonomous = phase != "idle" || worldActions.Active || missionPilot.Active;
+                try { spectatorCamera.Tick(chat.Autonomous,chat.IsOpen); }
+                catch(Exception) { spectatorCamera.Reset(); chat.Add(false,"Camera unavailable. Gameplay camera restored; your active action continues."); }
+                chat.CameraMode=spectatorCamera.ModeName;
+                chat.CameraState=spectatorCamera.Status;
+                chat.CameraLetterbox=spectatorCamera.Letterbox;
                 chat.OnFoot = !Game.Player.Character.IsInVehicle();
                 chat.WorldTime=ClockLabel();
                 chat.WeatherName=World.Weather.ToString();
@@ -233,6 +250,7 @@ namespace FiveVibe
                 paused=Game.IsPaused, thinking=chat.Thinking, provider=chat.Provider,
                 taskHudVisible=chat.ShowDrivingHud, clockFrozen=GameClock.IsPaused,
                 gameTime=ClockLabel(), weather=World.Weather.ToString(),
+                camera=new { mode=spectatorCamera.ModeName, status=spectatorCamera.Status, letterbox=spectatorCamera.Letterbox, cycleKey=cameraKey.ToString() },
                 missionPilot = new { active=missionPilot.Active, joined=missionPilot.Joined, stage=missionPilot.Status, objective=missionPilot.Objective, label=missionPilot.ObjectiveKey, result=missionPilot.Result },
                 messages=chat.Messages.Select(m => new { user=m.User, text=m.Text }).ToArray(),
                 places=PlaceCatalog.All.Select(p => new { id=p.Id, name=p.Name }).ToArray()
@@ -281,12 +299,13 @@ namespace FiveVibe
             plan.Validate();
             if (plan.Action == "stop") { BrakeOrRelease(); return; }
             if (plan.Action == "say") { chat.Add(false, plan.Message); return; }
+            if(CameraCommands.IsCamera(plan.Action)) { spectatorCamera.Execute(plan.Action); return; }
             if(plan.Action.StartsWith("hud_",StringComparison.Ordinal))
             { SetTaskHud(plan.Action=="hud_show" || (plan.Action=="hud_toggle" && !chat.ShowDrivingHud)); return; }
             if(plan.Action=="world_settings") { ApplyWorldSettings(plan); return; }
             if (plan.Action == "help")
             {
-                chat.Add(false, "Walk, run, greet or follow nearby people, switch characters, use the phone, drive to named places or reach a mission marker. F8 takes over. " +
+                chat.Add(false, "Walk, run, greet or follow nearby people, switch characters, use the phone, drive to named places or reach a mission marker. Choose first person or cinema in CAMERA; "+cameraKey+" cycles views. F8 takes over. " +
                     (planner == null ? "Local mode: basic commands only." : "OpenAI interprets your requests."));
                 return;
             }
@@ -495,6 +514,7 @@ namespace FiveVibe
         private void Stop(string message)
         {
             CancelPlanning();
+            spectatorCamera.Reset();
             missionPilot.Cancel();
             worldActions.Cancel();
             ReleaseControl();
@@ -504,6 +524,7 @@ namespace FiveVibe
         private void BrakeOrRelease()
         {
             CancelPlanning();
+            spectatorCamera.Reset();
             missionPilot.Cancel();
             if (phase == "driving" && driver != null && driver.Exists() && vehicle != null && vehicle.Exists())
             {
@@ -543,7 +564,7 @@ namespace FiveVibe
 
         private void Fail(Exception error)
         {
-            try { CancelPlanning(); missionPilot.Cancel(); worldActions.Cancel(); ReleaseControl(); chat.Add(false, "Action stopped: " + error.Message); }
+            try { CancelPlanning(); spectatorCamera.Reset(); missionPilot.Cancel(); worldActions.Cancel(); ReleaseControl(); chat.Add(false, "Action stopped: " + error.Message); }
             catch { phase = "idle"; }
         }
 

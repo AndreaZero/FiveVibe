@@ -11,6 +11,7 @@ FiveVibe is a .NET Framework / SHVDNE API 3 script for GTA V Enhanced Story Mode
 - FiveVibeScript owns game-thread scheduling, driving, configuration and request cancellation.
 - WorldActions owns walking, NPC approach/follow/greeting, phone/context input and real story character switching.
 - MissionPilot reads native mission observations and executes the bounded Franklin and Lamar profile on the game thread. MissionFlow holds pure stage decisions and steering logic; it is independent of GTA for regression testing.
+- SpectatorCamera owns view overrides and its single scripted director camera. CameraDirectorLogic provides pure framing, timing and English/Italian command parsing. Camera actions execute before movement dispatch and do not replace active tasks.
 - ChatOverlay and HudLayout render the native HUD.
 - PlaceCatalog provides 42 outdoor approach points and validated custom additions.
 - OpenAiPlanner calls Responses API with one strict function schema; LocalPlanner provides offline English/Italian commands.
@@ -24,6 +25,8 @@ The native switch uses GTA's ordinary protagonist-selection controls and verifie
 The companion page has no external assets or dependencies. Its HTML/CSS/JS is embedded in FiveVibe.dll at compile time. The private discovery file lives in the user's local application data directory, outside the source checkout.
 
 Automated tests use pure logic and loopback HTTP. Actual native game behavior requires Story Mode testing.
+
+The camera director follows an active AI-controlled subject with six scheduled shots. A synchronous cut check and bounded asynchronous swept-sphere probes constrain placement; stale probe results are ignored after transitions. A subject bounding-box check rejects shots inside the car/person. Camera smoothing compensates for subject translation so it does not trail a fast vehicle by several metres. Saved follow views are restored on F8/Stop or unload. The implementation does not change time scale, weather, actor tasks, entity coordinates or rendering cameras owned by other scripts.
 
 Mission Pilot is selected as one validated `mission_auto` action. Explicit start phrases are also handled locally in OpenAI mode. Its continuous loop makes no API calls: the model interprets the request, while known native objective labels and game observations select each stage. Ordinary world/drive tasks are released when the pilot starts; new movement requests and F8 disarm it. Cutscenes suspend the pilot rather than disarming it. `mission_status`, chat replies and HUD toggles do not interrupt it.
 

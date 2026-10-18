@@ -26,7 +26,8 @@ namespace FiveVibe
         public static readonly string[] Actions = { "cruise", "waypoint", "place", "speed", "stop", "leave", "help", "say",
             "walk_wander", "walk_forward", "walk_waypoint", "walk_place", "approach_npc", "greet_npc", "follow_npc",
             "switch_character", "phone_open", "phone_answer", "phone_hangup", "interact", "mission", "mission_status",
-            "world_settings", "hud_show", "hud_hide", "hud_toggle", "mission_auto" };
+            "world_settings", "hud_show", "hud_hide", "hud_toggle", "mission_auto",
+            "camera_gameplay", "camera_first", "camera_third", "camera_cinema", "camera_native", "camera_cycle", "camera_next", "camera_bars", "camera_bars_on", "camera_bars_off" };
         public static readonly string[] WeatherTypes={"none","auto","clear","sunny","clouds","fog","overcast","rain","thunder","smog","clearing","snow","blizzard","christmas"};
         public static readonly string[] ClockModes={"unchanged","pause","resume"};
         public static readonly string[] Actors = { "current", "michael", "franklin", "trevor" };
@@ -48,6 +49,7 @@ namespace FiveVibe
                 throw new ArgumentException("Choose Michael, Franklin or Trevor to switch characters.");
             if (Action == "mission_auto" && Actor != "current" && Actor != "franklin")
                 throw new ArgumentException("Mission Pilot uses the mission's own protagonist.");
+            if (CameraCommands.IsCamera(Action) && Actor != "current") throw new ArgumentException("Camera controls use the current protagonist.");
             if (Action.EndsWith("_npc", StringComparison.Ordinal) && Target != "nearest" && Target != "ahead" && Target != "current")
                 throw new ArgumentException("Invalid NPC selection.");
             if (Action != "mission" && !Action.EndsWith("_npc", StringComparison.Ordinal) && Target != "nearest")
@@ -98,6 +100,8 @@ namespace FiveVibe
             int speed = Math.Max(15, Math.Min(90, currentSpeed));
             string actor = Has(text, "michael|micheal") ? "michael" : Has(text, "franklin") ? "franklin" : Has(text, "trevor") ? "trevor" : "current";
             if (IsImmediateStop(text)) return CommandPlan.Create("stop", "current", speed);
+            CommandPlan cameraPlan;
+            if (CameraCommands.TryParse(text,out cameraPlan)) return cameraPlan;
             CommandPlan worldPlan;
             if (WorldControlParser.TryParse(text,out worldPlan)) return worldPlan;
             if (Has(text, "non|mai|senza|poi|oppure|not|never|then|or") || Has(text, "spara|uccidi|compra|vola|elicottero|aereo|teletrasporta|spawn|insegui|shoot|kill|teleport"))

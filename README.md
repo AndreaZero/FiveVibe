@@ -10,7 +10,7 @@ An open-source AI companion for GTA V Enhanced Story Mode. Give your character a
 
 FiveVibe includes a native in-game chat and a local browser companion. Requests can be written in English or Italian; the interface and assistant replies are in English.
 
-**Status: experimental, v0.7.0.** Free-roam driving has been confirmed by the original user. Mission Pilot now implements a first full-flow attempt for **Franklin and Lamar**; no successful autonomous playthrough has yet been observed. Walking, phone and character switching still need broader in-game testing. Background gameplay depends on GTA continuing to run while unfocused.
+**Status: experimental, v0.8.0.** Free-roam driving has been confirmed by the original user. Spectator cameras add first person, third person, a dynamic cinema director and GTA's own cinematic mode; native camera behavior still needs in-game validation. Mission Pilot implements a first full-flow attempt for **Franklin and Lamar**; no successful autonomous playthrough has yet been observed. Background gameplay depends on GTA continuing to run while unfocused.
 
 ## What you can do
 
@@ -25,6 +25,7 @@ FiveVibe includes a native in-game chat and a local browser companion. Requests 
 | Use the phone | “Answer the phone.” / “Hang up.” |
 | Get mission assistance | “What missions are available?” / “Go to Lester's mission marker.” |
 | Try Mission Pilot | “Start Mission Pilot for Franklin and Lamar.” |
+| Watch the ride | “Enable cinema camera.” / “Switch to first person.” |
 | Take over | Press **F8**, click **Stop & take over**, or say “stop.” |
 
 42 built-in places cover landmarks, neighbourhoods and countryside: Del Perro Pier, Mirror Park, Vinewood, Rockford Hills, Galileo Observatory, Sandy Shores, Grapeseed, Paleto Bay, Alamo Sea, Route 68, the protagonists' houses and more. The companion lists and searches the full catalog.
@@ -104,6 +105,8 @@ Set Enabled=false to disable the browser listener or choose a free port. There i
 | Esc | Close chat |
 | F8 | Cancel pending AI and autonomy; take over |
 | F9 | Show / hide the active task HUD |
+| F10 | Cycle camera: gameplay → first person → third person → cinema director → GTA cinema |
+| Shift+F10 | Next director shot; enables the director if needed |
 | Tab / Shift+Tab | Fill a quick request |
 | Up / Down | Recall requests |
 | Page Up / Page Down / mouse wheel | Scroll conversation |
@@ -114,7 +117,7 @@ The HUD uses GTA fonts, menu textures, protagonist colours, notification feed an
 
 ## Chat menus, world controls and a clean screen
 
-The native chat has five tabs: **Chat, Places, Ideas, World, HUD**. Click a tab or use Ctrl+Left/Right. Places lists every built-in and custom location, with Drive/Walk selection; Ideas provides ready-to-edit requests. Choosing a place or idea fills the composer: press Enter to send. Page Up/Down or the mouse wheel browses pages. Esc first returns from a submenu to Chat.
+The native chat has six tabs: **Chat, Places, Ideas, World, HUD, Camera**. Click a tab or use Ctrl+Left/Right. Places lists every built-in and custom location, with Drive/Walk selection; Ideas provides ready-to-edit requests. Choosing a place or idea fills the composer: press Enter to send. Page Up/Down or the mouse wheel browses pages. Esc first returns from a submenu to Chat.
 
 The composer supports 420 characters. Long input follows the latest three lines; use Shift+Page Up/Down or the wheel over the composer to read earlier lines. Text drawing and width measurement use GTA's multi-component text command with UTF-8-safe components, fixing the former disappearance after roughly 32 characters.
 
@@ -127,6 +130,30 @@ World provides weather presets, 06:00 / 12:00 / 19:00 / 00:00 and Freeze/Resume 
 Weather/time changes leave an active drive or walk running. The story retains control during missions and cutscenes; FiveVibe releases its weather/clock overrides when a mission starts or the script unloads. Automatic weather releases the manual weather override rather than selecting a new preset.
 
 **F9** shows/hides the on-screen task panel and its closed-chat hints, without stopping autonomy. The HUD tab, browser button and requests such as “Hide the task HUD” do the same. F8 still takes over. This preference is saved per Windows user in %LOCALAPPDATA%\FiveVibe\preferences.json. The INI supports [HUD] ShowTaskHud and ToggleKey as defaults; a saved preference takes precedence for visibility.
+
+## Watch the ride
+
+Start a drive or another AI action, then choose **F7 > Camera**, use the companion's **Watch the ride** buttons, or write “Metti la camera cinema”, “Switch to first person”, “Use GTA cinematic camera”, or “Restore normal camera”. Camera requests work locally without an API call and preserve the active action.
+
+- **First person:** native player/cockpit view, on foot or in a vehicle.
+- **Third person:** GTA's medium follow camera.
+- **Cinema director:** six timed shots (chase, side tracking, front quarter, high wide, low tracking and passing portrait), with slow framing drift, damped movement and speed-adjusted field of view. It watches an active AI action; when idle it waits for the next one.
+- **GTA cinema:** the game's original vehicle cinematic camera; it waits for a vehicle when on foot.
+- **Gameplay:** restores the view settings saved when the first camera override was selected.
+
+**F10** cycles modes; **Shift+F10** cuts to the next director shot. **F8 / Stop** returns control and restores the gameplay camera. Pressing the game's normal **V** camera key also releases FiveVibe's camera override. Hiding the task HUD with F9 leaves the camera running.
+
+The director checks for obstructions and shrinks or abandons blocked shots. It yields during pause, death, character transitions, fades, cutscenes and another script's rendering camera, then resumes once gameplay is available. It creates and destroys only its own camera. Optional letterbox bars are hidden while chat is open; Camera menu and companion controls toggle them for the current session. This is live viewing, with no video recording or export.
+
+New camera behavior is compiled and logic-tested but **has not yet been visually validated in GTA Enhanced**. Tight spaces, interiors and interactions with other camera mods need real-game testing.
+
+Defaults are used even when an existing INI has no Camera section. To customize:
+
+    [Camera]
+    CycleKey=F10
+    Letterbox=true
+
+If the cycle key conflicts with FiveVibe's chat, takeover, HUD, trainer or console bindings, a free fallback is selected and shown in the Camera menu/companion. View overrides start disabled on each script load.
 
 ## What is still limited
 
@@ -175,6 +202,7 @@ Tests cover local parsing, destination catalogs, custom-file validation, OpenAI 
     .\build\AiConnectionCheck.exe .\.env --expanded
     .\build\AiConnectionCheck.exe .\.env --places
     .\build\AiConnectionCheck.exe .\.env --mission
+    .\build\AiConnectionCheck.exe .\.env --camera
 
 Close GTA before updates. The source updater preserves configuration and makes a backup:
 

@@ -27,7 +27,10 @@ namespace FiveVibe
             new RequestIdea("Keep this moment","Freeze the clock"),
             new RequestIdea("Let time pass","Resume the clock"),
             new RequestIdea("A clean screen","Hide the task HUD"),
-            new RequestIdea("Show my task","Show the task HUD")
+            new RequestIdea("Show my task","Show the task HUD"),
+            new RequestIdea("Watch it like a movie","Enable cinema camera"),
+            new RequestIdea("In the driver's seat","Switch to first person"),
+            new RequestIdea("Back to gameplay","Restore normal camera")
         };
     }
 }
