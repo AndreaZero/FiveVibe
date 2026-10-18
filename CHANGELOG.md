@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.14.0 — Driving pace, speedometer, random mode and native cinema
+
+- Add normal/rush traffic styles and 15–160 km/h targets, including English/Italian hurry/traffic requests and companion controls. Mid-drive changes preserve the route and timed/themed progress.
+- Add a separate actual vehicle speedometer for autonomous and manual driving, with chat, native menu and companion toggles and saved HUD preferences.
+- Add random free-roam sessions choosing outdoor destinations, short strolls and native greetings, with bounded activities and explicit takeover/cancellation.
+- Remove the custom director camera, six-shot scheduler, probes, next-shot and letterbox controls. Automatic driving cinema now selects GTA native cinema; gameplay, first and third person remain.
+- Extend strict AI planning, local parsing, companion interaction and native-camera/overlay regression checks. New gameplay behavior still requires GTA Enhanced playtesting.
+
 ## 0.13.1 — Native menu layout fixes
 
 - Constrain World and Camera controls to a separate scrollable viewport, with wheel/PgUp/PgDn, on-screen arrows and a scrollbar. Keep quick requests, input and footer fixed; hidden controls cannot intercept their clicks.

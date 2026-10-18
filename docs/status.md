@@ -1,11 +1,11 @@
 # Project status
 
-Status snapshot for **FiveVibe 0.13.1**, prepared on **18 October 2026**. See [CHANGELOG.md](../CHANGELOG.md) for feature history. This remains an experimental, work-in-progress mod for GTA V Enhanced Story Mode.
+Status snapshot for **FiveVibe 0.14.0**, prepared on **18 October 2026**. See [CHANGELOG.md](../CHANGELOG.md) for feature history. This remains an experimental, work-in-progress mod for GTA V Enhanced Story Mode.
 
 ## Distribution
 
 - Public source: [AndreaZero/FiveVibe](https://github.com/AndreaZero/FiveVibe), MIT licensed.
-- Release entry: [v0.13.1 pre-release](https://github.com/AndreaZero/FiveVibe/releases/tag/v0.13.1). Use the installable `FiveVibe-v0.13.1.zip` and its SHA-256 file, not GitHub's automatic source archives. See the release entry for publication state and assets.
+- Release entry: [v0.14.0 pre-release](https://github.com/AndreaZero/FiveVibe/releases/tag/v0.14.0). Use the installable `FiveVibe-v0.14.0.zip` and its SHA-256 file, not GitHub's automatic source archives. See the release entry for publication state and assets.
 - CI: [Build and checks](https://github.com/AndreaZero/FiveVibe/actions/workflows/build.yml). The workflow builds an artifact; it does not automatically create a GitHub Release. Check the run for the published commit.
 - Website: [fivevibe.gta-vi.it](https://fivevibe.gta-vi.it), maintained in a separate repository. The public domain responded with HTTP 200 on 18 October 2026.
 - GTA5-Mods: no listing URL is configured in the website checkout. See [publishing.md](publishing.md) before submitting.
@@ -17,7 +17,7 @@ The release contains the mod DLL, public configuration, helpers, license and doc
 | Area | What exists | Validation limit |
 | --- | --- | --- |
 | Chat and driving | Native chat, local commands, optional OpenAI interpretation, nearby available vehicle acquisition and road-AI driving | Original user confirmed base chat/driving; not every later feature |
-| Native menus | Six tabs, bounded World/Camera scrolling, fixed composer/quick requests, full key badges and a shortcut to the existing weather-city command | Actual drawing/input code passed 823 recording-native checks; author captures now show the World menu, chat and full footer labels. Camera-menu and complete interaction testing remain pending |
+| Native menus | Six tabs, bounded World/Camera scrolling, fixed composer/quick requests, full key badges and a shortcut to the existing weather-city command | Actual drawing/input code passed 851 recording-native checks; author captures now show the World menu, chat and full footer labels. Camera-menu and complete interaction testing remain pending |
 | Timed drives | 1–120 minutes of cruising, then return near the captured origin; local/AI commands, companion duration field, HUD countdown and observed stages | Clock/command/UI checks passed; full native duration/pause/return journey still unverified |
 | Themed drives | Coast and countryside four-stop itineraries, local/AI starts, companion buttons and HUD progress; continuous intermediate legs and confirmed final stop | State/command/UI checks passed; both full native journeys still unverified |
 | Favorites | Named current-position saves, local persistence for 50 places, chat returns and companion Drive/Walk buttons; saved entries join native Places/AI catalog | Persistence, dispatch and simulated browser checks passed; actual in-game save/restart/return pending |
@@ -25,12 +25,15 @@ The release contains the mod DLL, public configuration, helpers, license and doc
 | Destinations | 47 built-in places, waypoints, custom JSON places and LS Customs branch selection | Approach coordinates and native routes need community testing |
 | World actions | Walking, NPC approach/follow/greeting attempts, phone/context inputs, protagonist switching and mission-marker assistance | Availability depends on GTA; no generated NPC conversations |
 | Companion | Loopback browser panel, places, requests, state and Stop | Background use requires GTA to remain unpaused |
-| Cameras | First/third person, native cinema, six-shot director and automatic cinema during AI driving | Visual/native behavior still needs gameplay validation |
+| Driving pace | Normal/rush style and 15–160 km/h target updates; active route/timer preserved | Command/state tests passed; overtaking, lights and actual speed need native playtesting |
+| Speedometer | Independent saved HUD toggle; actual current-vehicle speed even in manual driving | Preference/draw/input checks passed; native car/motorcycle pass pending |
+| Random mode | Sequential outdoor destinations, bounded strolls and native greeting attempts; stop/replacement/mission/switch cleanup | Pure scheduling and command tests passed; native sequence pending |
+| Cameras | Four native views; automatic GTA vehicle cinema; custom director removed | Visual/native behavior still needs gameplay validation |
 | Real-world sync | PC clock and optional Open-Meteo weather selected by city or explicit browser location | Integration checked; native overrides/transitions still need gameplay tests |
 | Vehicle categories | Motorcycle, SUV, off-road, sports, supercar, sedan, muscle, van and pickup filters | Entry/driving behavior, especially motorcycles, still needs gameplay tests |
 | Mission Pilot | One bounded Franklin and Lamar profile, stage feedback and cancellation | No observed successful autonomous end-to-end playthrough; no campaign solver |
 
-The v0.13.1 validation run passed **1,467 C# checks** (128 planner, 52 mission, 69 camera, 71 ambient, 58 radio, 65 favorites, 78 tours, 74 timed drives, 49 companion and 823 overlay) plus **15 dependency-free companion interaction tests**: **1,482 automated checks total**. Update/backup/migration/rollback checks passed separately.
+The v0.14.0 validation run passed **1,549 checks** (1,529 C# and 20 companion script tests), plus the installer/rollback suite, five synthetic live-AI cases and desktop/mobile browser checks. It covers planner/API, driving styles, random scheduling, HUD preferences, real native-camera controller code against recording stubs, mission logic, ambient controls, radio, favorites, tours, timed drives, companion HTTP and actual overlay drawing/input. Browser interaction tests cover the new companion controls. These checks do not establish native gameplay success; the new behavior still requires a GTA Enhanced playtest.
 
 Overlay tests compile the actual ChatOverlay drawing and input code against recording natives. They check all six tabs, World/Camera wheel/PgUp/PgDn and arrow scrolling, hidden-control click isolation, city command entry, Esc Back/Close and full key labels at four aspect ratios and three safe-zone settings. Generated previews use approximate Windows font metrics, not GTA screenshots. Native visual confirmation of this menu patch remains pending.
 

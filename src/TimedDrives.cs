@@ -58,7 +58,7 @@ namespace FiveVibe
     {
         public static CommandPlan Create(int minutes,int speed)
         {
-            var plan=new CommandPlan {Action="timed_drive",Actor="current",Place="none",SpeedKmh=Math.Max(15,Math.Min(90,speed)),DurationMinutes=minutes};
+            var plan=new CommandPlan {Action="timed_drive",Actor="current",Place="none",SpeedKmh=Math.Max(15,Math.Min(DrivingCommands.MaximumSpeed,speed)),DurationMinutes=minutes};
             plan.Validate();return plan;
         }
         public static bool TryParse(string input,int speed,out CommandPlan plan,bool clarifyUnsupported=true)

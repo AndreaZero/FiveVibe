@@ -68,7 +68,7 @@ namespace FiveVibe
             bool coast=Regex.IsMatch(text,"^(?:"+englishStart+@"(?:coastal|coast|seaside) (?:drive|ride|tour)|(?:drive|ride) (?:along|on) (?:the )?coast|"+italianStart+@"(?:giro|tour)(?: panoramico)? (?:sulla|lungo la|lungo) costa|"+italianStart+@"giro costiero)$");
             bool country=Regex.IsMatch(text,"^(?:"+englishStart+@"(?:countryside|country|rural) (?:drive|ride|tour)|(?:(?:take me for a|take a|go for a) )?(?:drive|ride|tour) (?:in|through|around) (?:the )?countryside|"+italianStart+@"(?:giro|tour)(?: panoramico)? in campagna)$");
             if(coast)action="tour_coast";else if(country)action="tour_countryside";
-            if(action!=null) {plan=CommandPlan.Create(action,"current",Math.Max(15,Math.Min(90,speed)));return true;}
+            if(action!=null) {plan=CommandPlan.Create(action,"current",Math.Max(15,Math.Min(DrivingCommands.MaximumSpeed,speed)));return true;}
             // Do not replace a named destination merely because it mentions the coast/countryside.
             if(Regex.IsMatch(text,@"\b(?:giro|tour|drive|ride)\b") &&
                 (Regex.IsMatch(text,@"\b(?:coast|coastal|costa|costiero|campagna|countryside|rural)\b.*\b(?:then|poi|and|e)\b") ||

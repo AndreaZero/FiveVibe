@@ -12,6 +12,7 @@ namespace FiveVibe
         public string Actor { get; set; }
         public string Place { get; set; }
         public int SpeedKmh { get; set; }
+        public string DrivingStyle { get; set; }
         public string Message { get; set; }
         public string Pace { get; set; }
         public string Target { get; set; }
@@ -24,14 +25,14 @@ namespace FiveVibe
         public string Station { get; set; }
         public int DurationMinutes { get; set; }
 
-        public CommandPlan() { Pace = "walk"; Target = "nearest"; DistanceMeters = 25; WeatherType="none"; Hour=-1; Clock="unchanged"; VehicleType="any"; Station="none"; }
+        public CommandPlan() { DrivingStyle="unchanged"; Pace = "walk"; Target = "nearest"; DistanceMeters = 25; WeatherType="none"; Hour=-1; Clock="unchanged"; VehicleType="any"; Station="none"; }
 
         public static readonly string[] Actions = { "cruise", "waypoint", "place", "speed", "stop", "leave", "help", "say",
             "walk_wander", "walk_forward", "walk_waypoint", "walk_place", "approach_npc", "greet_npc", "follow_npc",
             "switch_character", "phone_open", "phone_answer", "phone_hangup", "interact", "mission", "mission_status",
-            "world_settings", "hud_show", "hud_hide", "hud_toggle", "mission_auto", "vehicle", "radio_set", "radio_off", "tour_coast", "tour_countryside", "timed_drive",
+            "random_on", "random_off", "speedometer_show", "speedometer_hide", "speedometer_toggle", "world_settings", "hud_show", "hud_hide", "hud_toggle", "mission_auto", "vehicle", "radio_set", "radio_off", "tour_coast", "tour_countryside", "timed_drive",
             "realtime_clock", "realtime_weather", "realtime_both", "realtime_off", "realtime_clock_off", "realtime_weather_off", "realtime_status", "camera_auto_on", "camera_auto_off",
-            "camera_gameplay", "camera_first", "camera_third", "camera_cinema", "camera_native", "camera_cycle", "camera_next", "camera_bars", "camera_bars_on", "camera_bars_off" };
+            "camera_gameplay", "camera_first", "camera_third", "camera_native", "camera_cycle" };
         public static readonly string[] WeatherTypes={"none","auto","clear","sunny","clouds","fog","overcast","rain","thunder","smog","clearing","snow","blizzard","christmas"};
         public static readonly string[] ClockModes={"unchanged","pause","resume"};
         public static readonly string[] Actors = { "current", "michael", "franklin", "trevor" };
@@ -43,8 +44,12 @@ namespace FiveVibe
         {
             if (!Actions.Contains(Action) || !Actors.Contains(Actor) || !Places.Contains(Place))
                 throw new ArgumentException("The plan contains an unsupported action.");
-            if (SpeedKmh < 15 || SpeedKmh > 90)
-                throw new ArgumentException("Speed must be between 15 and 90 km/h.");
+            if (SpeedKmh < 15 || SpeedKmh > DrivingCommands.MaximumSpeed)
+                throw new ArgumentException("Speed must be between 15 and 160 km/h.");
+            if(DrivingStyle!="unchanged" && (DrivingStyle!="normal" && DrivingStyle!="rush" || !DrivingCommands.IsDriving(Action)))
+                throw new ArgumentException("Driving style does not match the action.");
+            if((Action=="speed" || Action.StartsWith("random_",StringComparison.Ordinal) || Action.StartsWith("speedometer_",StringComparison.Ordinal)) && Actor!="current")
+                throw new ArgumentException("Vibe controls use the current protagonist.");
             if(!VehicleSelection.Types.Contains(VehicleType) || (VehicleType!="any" && Action!="vehicle" && Action!="cruise" && Action!="place" && Action!="waypoint" && Action!="mission" && Action!="timed_drive" && !TourCatalog.IsStartAction(Action)))
                 throw new ArgumentException("Vehicle selection does not match the action.");
             if ((Action == "place" || Action == "walk_place") != (Place != "none"))
@@ -116,9 +121,11 @@ namespace FiveVibe
         private static CommandPlan ParseCore(string input, int currentSpeed)
         {
             string text = Normalize(input);
-            int speed = Math.Max(15, Math.Min(90, currentSpeed));
+            int speed = Math.Max(15, Math.Min(DrivingCommands.MaximumSpeed, currentSpeed));
             string actor = Has(text, "michael|micheal") ? "michael" : Has(text, "franklin") ? "franklin" : Has(text, "trevor") ? "trevor" : "current";
             if (IsImmediateStop(text)) return CommandPlan.Create("stop", "current", speed);
+            CommandPlan vibePlan;
+            if(VibeCommands.TryParse(text,out vibePlan) || DrivingCommands.TryParse(text,speed,out vibePlan))return vibePlan;
             CommandPlan timedPlan;
             if(TimedDriveCommands.TryParse(text,speed,out timedPlan))return timedPlan;
             CommandPlan radioPlan;
@@ -131,7 +138,7 @@ namespace FiveVibe
             if(RealWorldCommands.TryPlan(text,out realPlan)) return realPlan;
             CommandPlan worldPlan;
             if (WorldControlParser.TryParse(text,out worldPlan)) return worldPlan;
-            if (Has(text, "non|mai|senza|poi|oppure|not|never|then|or") || Has(text, "spara|uccidi|compra|vola|elicottero|aereo|teletrasporta|spawn|insegui|shoot|kill|teleport"))
+            if (Has(text, "non|mai|senza|poi|oppure|not|never|don't|dont|then|or") || Has(text, "spara|uccidi|compra|vola|elicottero|aereo|teletrasporta|spawn|insegui|shoot|kill|teleport"))
                 return Say("In local mode, try a simple request: cruise, drive to Paleto Bay, walk to the waypoint, or stop.");
             if (Has(text, "aiuto|help|comandi|ciao")) return CommandPlan.Create("help", actor, speed);
             bool namedPilot = Regex.IsMatch(text, @"\bfranklin (?:and|e|&) lamar\b");
@@ -162,10 +169,10 @@ namespace FiveVibe
             if (number.Success)
             {
                 speed = int.Parse(number.Groups[1].Value, CultureInfo.InvariantCulture);
-                if (speed < 15 || speed > 90) return Say("Choose a speed between 15 and 90 km/h.");
+                if (speed < 15 || speed > DrivingCommands.MaximumSpeed) return Say("Choose a speed between 15 and 160 km/h.");
             }
             else if (Has(text, "rallenta|piano|lentamente|slower|slow down")) speed = Math.Max(15, speed - 10);
-            else if (Has(text, "accelera|veloce|faster|speed up")) speed = Math.Min(90, speed + 10);
+            else if (Has(text, "accelera|veloce|faster|speed up")) speed = Math.Min(DrivingCommands.MaximumSpeed, speed + 10);
 
             var mentioned = PlaceCatalog.Match(text);
             int destinations = mentioned.Length + (Has(text, "segnaposto|waypoint|indicatore|marker") ? 1 : 0);

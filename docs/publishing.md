@@ -1,6 +1,6 @@
 # Publication guide and description draft
 
-Prepared on **18 October 2026** for FiveVibe **0.13.1**. See [status.md](status.md) for the evidence behind the claims below.
+Prepared on **18 October 2026** for FiveVibe **0.14.0**. See [status.md](status.md) for the evidence behind the claims below.
 
 ## GTA5-Mods eligibility first
 
@@ -14,7 +14,7 @@ If eligibility is confirmed, follow the site's current upload form and rules. It
 
 ## Release preparation
 
-The existing [v0.13.1 pre-release](https://github.com/AndreaZero/FiveVibe/releases/tag/v0.13.1) already has the installable ZIP and checksum. Users need **FiveVibe-v0.13.1.zip**, not GitHub's automatic “Source code” archives. The public pre-release is not a stable release.
+The existing [v0.14.0 pre-release](https://github.com/AndreaZero/FiveVibe/releases/tag/v0.14.0) already has the installable ZIP and checksum. Users need **FiveVibe-v0.14.0.zip**, not GitHub's automatic “Source code” archives. The public pre-release is not a stable release.
 
 Before advertising it broadly, complete the gameplay checks in [status.md](status.md) and record the exact versions tested. Do not advertise Legacy, FiveM, GTA Online or general autonomous mission completion as supported.
 
@@ -31,7 +31,7 @@ The current build, automated checks and validation limits are recorded in [statu
 
 Package **only the contents of `dist/FiveVibe/`**, preserving the `scripts/` directory, into a versioned ZIP, then calculate its SHA-256. Do not zip the repository root, the entire `dist/` directory, `build/`, `vendor/`, local logs, backups, compatibility records or private env files. An older `dist/GtaAi/` prototype exists locally and is not part of FiveVibe's release. Default distributed configuration must remain `Provider=Local`, with no credentials or personal paths. Preserve a user's private INI/env configuration during upgrades.
 
-For the existing v0.13.1 release, prefer the already published archive rather than repackaging it under the same version. New documentation in the checkout does not alter that archive. A future build copies the Markdown files under `docs/` into its distribution automatically.
+For the existing v0.14.0 release, prefer the already published archive rather than repackaging it under the same version. New documentation in the checkout does not alter that archive. A future build copies the Markdown files under `docs/` into its distribution automatically.
 
 ## Listing fields to prepare
 
@@ -46,10 +46,10 @@ These are suggested editorial values, not a claim that the submission has been a
 | Platform | GTA V Enhanced, PC, Story Mode |
 | Source/license | [GitHub](https://github.com/AndreaZero/FiveVibe), MIT |
 | Website | [fivevibe.gta-vi.it](https://fivevibe.gta-vi.it) — verify live availability first |
-| Download | [v0.13.1 pre-release](https://github.com/AndreaZero/FiveVibe/releases/tag/v0.13.1) |
+| Download | [v0.14.0 pre-release](https://github.com/AndreaZero/FiveVibe/releases/tag/v0.14.0) |
 | Support | [GitHub Issues](https://github.com/AndreaZero/FiveVibe/issues) |
 
-Capture actual gameplay showing the F7 chat, a drive with the active task, the director camera and a companion view alongside the game. A short video should demonstrate one request, the resulting movement and F8 takeover. Use only features you have actually demonstrated; do not present the website's concept scenes as mod screenshots.
+Capture actual gameplay showing the F7 chat, a drive with the active task, the native GTA cinematic camera and a companion view alongside the game. A short video should demonstrate one request, the resulting movement and F8 takeover. Use only features you have actually demonstrated; do not present the website's concept scenes as mod screenshots.
 
 ## English description draft
 
@@ -60,9 +60,9 @@ Editorial draft for GitHub/the website. The GTA5-Mods restriction above applies 
 <br><br>
 FiveVibe is a free, open-source text-controlled companion for GTA V Enhanced Story Mode. Ask your character to take a relaxed drive, visit a place or go for a walk, then watch Los Santos unfold. Use the native in-game chat or a local browser companion.
 <br><br>
-<b>Work in progress — experimental v0.13.1</b>
+<b>Work in progress — experimental v0.14.0</b>
 <br>
-This is an early pre-release. Base chat and free-roam driving have been confirmed by the original user. Complete timed drives/returns, themed drives, favorite save/return behavior, vehicle radio controls, new camera behavior, real-world overrides and vehicle-category behavior still need in-game validation. Expect bugs and version-dependent behavior. Mission Pilot has not yet completed an observed autonomous end-to-end run.
+This is an early pre-release. Base chat and free-roam driving have been confirmed by the original user. Rush driving, the vehicle speedometer, random mode, complete timed drives/returns, themed drives, favorite save/return behavior, vehicle radio controls, new camera behavior, real-world overrides and vehicle-category behavior still need in-game validation. Expect bugs and version-dependent behavior. Mission Pilot has not yet completed an observed autonomous end-to-end run.
 <br><br>
 <b>What “AI” means here</b>
 <br>
@@ -78,7 +78,10 @@ AI interprets your text request into a validated game action; GTA's native tasks
 - Save the current game position as a named favorite and return through chat or companion Drive/Walk buttons. Up to 50 places are stored locally; saving preserves the ride, while returning starts a new route.<br>
 - Nearby available vehicle selection, including motorcycles, SUVs and off-road vehicles. No vehicle spawning or forced NPC ejection.<br>
 - Walking, strolling and basic NPC approach/follow/greeting attempts.<br>
-- First-person, third-person, GTA cinematic camera and a six-shot director, with optional automatic cinema during AI driving.<br>
+- Normal/rush driving, 15–160 km/h speed targets and traffic passing requests without losing the active route. GTA determines actual speed.<br>
+- An independently toggleable vehicle speedometer, including manual car/motorcycle driving.<br>
+- Random free-roam mode choosing destinations, short strolls and native greetings; F8 or a new movement command ends it.<br>
+- Gameplay, first-person/cockpit, third-person and original GTA cinematic views. Automatic driving cinema uses GTA; the custom director has been removed.<br>
 - Manual world controls, PC clock sync and optional approximate real weather through Open-Meteo.<br>
 - Vehicle radio station selection by name, Radio off and companion buttons, preserving the active ride.<br>
 - Immediate takeover with F8 or the companion's Stop button.<br>
@@ -94,7 +97,7 @@ ScriptHookVDotNet Enhanced by Chiheb-Bacha and contributors: <a href="https://gi
 <b>Installation and first use</b>
 <br>
 1. Close GTA and install the compatible Script Hook V/ASI loader and SHVDNE following their instructions.<br>
-2. Extract FiveVibe-v0.13.1.zip. Copy FiveVibe.dll and FiveVibe.ini from its scripts folder into your game's scripts folder. Keep your existing private configuration when updating.<br>
+2. Extract FiveVibe-v0.14.0.zip. Copy FiveVibe.dll and FiveVibe.ini from its scripts folder into your game's scripts folder. Keep your existing private configuration when updating.<br>
 3. Start Story Mode and press F7. Local commands work immediately without an API key.<br>
 4. Try “Drive to Paleto Bay”, “Walk to the waypoint” or “Find an empty car and cruise”. Press F8 to cancel and take over.<br>
 5. For the optional browser panel, run Open-Companion.ps1 from the extracted release folder. Its Radio section selects stations or turns the radio off without stopping the ride.<br>
@@ -113,7 +116,7 @@ Driving and walking depend on GTA pathfinding, traffic and accessible routes. Mo
 <br>
 FiveVibe is free and MIT licensed. Source code, issues, contributions and the roadmap are on GitHub. Bug reports should include your game build, Script Hook V/SHVDNE versions, exact request and observed behavior, with credentials removed.<br>
 Source and installation: <a href="https://github.com/AndreaZero/FiveVibe">GitHub</a><br>
-Download: <a href="https://github.com/AndreaZero/FiveVibe/releases/tag/v0.13.1">v0.13.1 pre-release</a><br>
+Download: <a href="https://github.com/AndreaZero/FiveVibe/releases/tag/v0.14.0">v0.14.0 pre-release</a><br>
 Website: <a href="https://fivevibe.gta-vi.it">FiveVibe website</a><br>
 Support: <a href="https://github.com/AndreaZero/FiveVibe/issues">GitHub Issues</a><br>
 Data and privacy: <a href="https://github.com/AndreaZero/FiveVibe/blob/main/SECURITY.md">SECURITY.md</a><br>

@@ -27,7 +27,8 @@ namespace FiveVibe
         public string WorldTime="", WeatherName="";
         public string HudToggleKeyName="F9";
         public string CameraMode="Gameplay", CameraState="Gameplay", CameraKeyName="F10";
-        public bool CameraLetterbox=true;
+        public bool RandomMode;
+        public bool ShowVehicleSpeed=true;
         public bool AutoCinemaDriving=true,RealClock,RealWeather;
         public bool ShowDrivingHud = true, InterfaceSounds = true;
         public int CurrentSpeedKmh, HudColorId = 143;
@@ -185,6 +186,7 @@ namespace FiveVibe
                 {
                     if (ShowDrivingHud) { DrawDrivingHud(box); DrawInstructions(box,openKey, takeoverKey); }
                 }
+                if(ShowVehicleSpeed && !OnFoot)DrawSpeedometer(box);
                 return null;
             }
 
@@ -284,7 +286,7 @@ namespace FiveVibe
         {
             bool scrollable=menuTab==3 || menuTab==5;
             menuTextRight=box.Right-box.Padding;
-            menuViewport=scrollable?new HudMenuViewport(box.HistoryTop,box.MenuBottom,box.Top+(menuTab==3?.645f:.571f),menuScroll):null;
+            menuViewport=scrollable?new HudMenuViewport(box.HistoryTop,box.MenuBottom,box.Top+(menuTab==3?.645f:.483f),menuScroll):null;
             if(menuViewport!=null)menuScroll=menuViewport.Offset;
             float left=box.Left+box.Padding,width=box.TextWidth,y=box.Top-(scrollable?menuScroll:0);
             if(menuTab==1)
@@ -342,19 +344,15 @@ namespace FiveVibe
             else if(menuTab==5)
             {
                 Text("WATCH THE WORLD  /  "+CameraMode.ToUpperInvariant(),left,y+.195f,.225f,Muted);
-                string[] labels={"Gameplay camera","First person / cockpit","Third person","Cinema director / dynamic shots","GTA native cinema"};
-                string[] actions={"camera_gameplay","camera_first","camera_third","camera_cinema","camera_native"};
-                string[] modes={"Gameplay","First person","Third person","Cinema director","GTA cinema"};
+                string[] labels={"Gameplay camera","First person / cockpit","Third person","GTA native cinema"};
+                string[] actions={"camera_gameplay","camera_first","camera_third","camera_native"};
+                string[] modes={"Gameplay","First person","Third person","GTA cinema"};
                 for(int i=0;i<labels.Length;i++)
                     if(Button(labels[i],left,y+.226f+i*.037f,width,.032f,mx,my,click,CameraMode==modes[i]))
                         pendingUiPlan=CommandPlan.Create(actions[i],"current",45,"none",labels[i]);
-                float gap=.006f/box.Aspect,half=(width-gap)/2;
-                if(Button("Next shot",left,y+.419f,half,.033f,mx,my,click)) pendingUiPlan=CommandPlan.Create("camera_next","current",45,"none","Next cinema shot");
-                if(Button(CameraLetterbox?"Letterbox: ON":"Letterbox: OFF",left+half+gap,y+.419f,half,.033f,mx,my,click,CameraLetterbox))
-                    pendingUiPlan=CommandPlan.Create("camera_bars","current",45,"none","Toggle cinema letterbox");
-                Text(CameraKeyName+": change view. Shift+"+CameraKeyName+": next shot.",left,y+.468f,.225f,Muted);
-                Text("F8 restores gameplay. Director watches AI actions.",left,y+.493f,.225f,Muted);
-                if(Button(AutoCinemaDriving?"Auto cinema while AI drives: ON":"Auto cinema while AI drives: OFF",left,y+.539f,width,.032f,mx,my,click,AutoCinemaDriving))
+                Text(CameraKeyName+": cycle the four native views.",left,y+.439f,.225f,Muted);
+                Text("GTA chooses its cinematic shots. F8 takes over.",left,y+.463f,.215f,Muted);
+                if(Button(AutoCinemaDriving?"Auto cinema while AI drives: ON":"Auto cinema while AI drives: OFF",left,y+.389f,width,.032f,mx,my,click,AutoCinemaDriving))
                     pendingUiPlan=CommandPlan.Create(AutoCinemaDriving?"camera_auto_off":"camera_auto_on","current",45,"none","Toggle automatic driving cinema");
             }
             else
@@ -362,8 +360,12 @@ namespace FiveVibe
                 Text("ACTIVE TASK DISPLAY",left,y+.202f,.29f,White);
                 if(Button(ShowDrivingHud?"Task HUD: ON":"Task HUD: OFF",left,y+.252f,width,.042f,mx,my,click,ShowDrivingHud))
                 { pendingUiPlan=CommandPlan.Create("hud_toggle","current",45,"none","Toggle task HUD"); }
-                string[] notes={HudToggleKeyName+" toggles this display at any time.","Hiding it keeps your AI action running.","F8 always stops and returns control.","Your choice is saved for future sessions."};
-                for(int i=0;i<notes.Length;i++) Text(notes[i],left,y+.326f+i*.035f,.245f,Muted);
+                if(Button(ShowVehicleSpeed?"Vehicle speed: ON":"Vehicle speed: OFF",left,y+.309f,width,.042f,mx,my,click,ShowVehicleSpeed))
+                    pendingUiPlan=CommandPlan.Create("speedometer_toggle","current",45,"none","Toggle vehicle speedometer");
+                if(Button(RandomMode?"Random mode: ON":"Random mode: OFF",left,y+.366f,width,.042f,mx,my,click,RandomMode))
+                    pendingUiPlan=CommandPlan.Create(RandomMode?"random_off":"random_on","current",45,"none","Toggle random mode");
+                Text(HudToggleKeyName+": task HUD. Speed is independent.",left,y+.435f,.235f,Muted);
+                Text("F8 takes over. HUD choices are saved.",left,y+.470f,.235f,Muted);
             }
             var viewport=menuViewport;menuViewport=null;
             if(viewport!=null)DrawMenuScroll(box,viewport,mx,my,click);
@@ -459,14 +461,20 @@ namespace FiveVibe
 
         private void DrawDrivingHud(HudLayout box)
         {
-            float width = .355f / box.Aspect, x = box.Right - width, y = .765f;
+            float width = .355f / box.Aspect, x = box.Right - width, y = Math.Min(.765f,box.SafeBottom-.205f);
             Rect(x, y, width, .095f, Color.FromArgb(190, 0, 0, 0));
             Rect(x, y, .003f / box.Aspect, .095f, accent);
             Text("FIVEVIBE", x + box.Padding, y + .009f, .27f, accent, 4);
-            Text(HudText.Tail(Thinking ? "Planning your request..." : Status, width - .095f / box.Aspect, s => NativeMeasure(s, .275f)), x + box.Padding, y + .033f, .275f, White);
-            Text(HudText.Tail(Route, width - .095f / box.Aspect, s => NativeMeasure(s, .245f)), x + box.Padding, y + .063f, .245f, Muted);
-            TextRight(OnFoot ? "ON FOOT" : CurrentSpeedKmh.ToString(), box.Right - box.Padding, y + .011f, OnFoot ? .29f : .65f, White, 4);
-            if (!OnFoot) TextRight("KM/H", box.Right - box.Padding, y + .061f, .205f, Muted);
+            Text(HudText.Tail(Thinking ? "Planning your request..." : Status, width - box.Padding*2, s => NativeMeasure(s, .275f)), x + box.Padding, y + .033f, .275f, White);
+            Text(HudText.Tail(Route, width - box.Padding*2, s => NativeMeasure(s, .245f)), x + box.Padding, y + .063f, .245f, Muted);
+        }
+        private void DrawSpeedometer(HudLayout box)
+        {
+            float width=.14f/box.Aspect,x=box.Right-width,y=Math.Min(.875f,box.SafeBottom-.095f);
+            Rect(x,y,width,.058f,Color.FromArgb(200,0,0,0));
+            Rect(x,y,.003f/box.Aspect,.058f,accent);
+            TextRight(CurrentSpeedKmh.ToString(),box.Right-box.Padding,y+.002f,.52f,White,4);
+            TextRight("KM/H",box.Right-box.Padding,y+.037f,.205f,Muted);
         }
 
         private void DrawMenuTexture(float x, float y, float width, float height, Color color)

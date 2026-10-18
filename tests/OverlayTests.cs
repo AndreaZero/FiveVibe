@@ -55,19 +55,30 @@ internal static class OverlayTests
                     }
                 }
             }
+            foreach(float aspect in new[]{4f/3f,16f/9f,21f/9f,32f/9f})foreach(float safe in new[]{.8f,.9f,1f})
+            {
+                NativeFrame.Aspect=aspect;NativeFrame.Safe=safe;
+                var box=new HudLayout(aspect,safe);
+                using(var ui=new ChatOverlay {InterfaceSounds=false,Autonomous=true,OnFoot=false,CurrentSpeedKmh=73})
+                {
+                    Draw(ui);var panels=NativeFrame.Ops.Where(o=>o.Text==null && o.W>.02f/aspect && o.H>.05f).OrderBy(o=>o.Y).ToArray();
+                    Check(panels.Length==2 && panels[0].Y+panels[0].H<panels[1].Y && panels[1].Y+panels[1].H<box.SafeBottom-.034f,"Task HUD, speedometer and key hints do not overlap at any supported aspect/safe zone");
+                    ui.Autonomous=false;Draw(ui);Check(NativeFrame.Has("73") && !NativeFrame.Has("FIVEVIBE"),"Manual driving displays the independent actual speed");
+                }
+            }
             NativeFrame.Aspect=16f/9f;NativeFrame.Safe=.9f;
             var layout=new HudLayout(NativeFrame.Aspect,NativeFrame.Safe);
             using(var ui=new ChatOverlay {IsOpen=true,InterfaceSounds=false})
             {
                 Select(ui,5);Draw(ui);
-                Check(!NativeFrame.Has("Auto cinema while AI drives: ON"),"Hidden camera button is not drawn under quick requests");
+                Check(NativeFrame.Has("Auto cinema while AI drives: ON") && !NativeFrame.Has("v"),"All four native views and automatic cinema fit without scrolling");
                 NativeFrame.Begin();NativeFrame.MouseX=layout.Left+layout.Padding+.01f;NativeFrame.MouseY=layout.Top+.555f;NativeFrame.Click=true;
                 ui.Draw("F7","F8");Check(ui.TakeUiPlan()==null,"Clicking quick requests cannot activate the hidden camera toggle");
                 Key(ui,Keys.PageDown);Draw(ui);var auto=NativeFrame.Find("Auto cinema while AI drives: ON");Click(ui,auto);
                 Check(ui.TakeUiPlan().Action=="camera_auto_off","Visible camera toggle still dispatches its original action");
-                Draw(ui);Click(ui,NativeFrame.Find("^"));Draw(ui);
-                Check(NativeFrame.Has("Gameplay camera"),"On-screen scroll-up control works");
-                Click(ui,NativeFrame.Find("v"));Draw(ui);Check(!NativeFrame.Has("Gameplay camera"),"On-screen scroll-down control works");
+                Select(ui,3);Key(ui,Keys.PageDown);Draw(ui);Click(ui,NativeFrame.Find("^"));Draw(ui);Click(ui,NativeFrame.Find("^"));Draw(ui);
+                Check(NativeFrame.Has("Clear"),"On-screen World scroll-up control works");
+                Click(ui,NativeFrame.Find("v"));Draw(ui);Check(!NativeFrame.Has("Clear"),"On-screen World scroll-down control works");
                 Select(ui,3);Draw(ui);Check(!NativeFrame.Has("Set weather city..."),"World bottom controls start outside the viewport");
                 Key(ui,Keys.PageDown);Draw(ui);Click(ui,NativeFrame.Find("Set weather city..."));
                 Check(ui.Input=="Set weather location to ","City control focuses existing chat command entry");
@@ -79,7 +90,14 @@ internal static class OverlayTests
                 Key(ui,Keys.Tab);Check(ui.Input=="Take a chill drive","Tab quick requests still work");
                 Key(ui,Keys.Escape);Check(!ui.IsOpen,"Escape closes chat from chat tab");
                 ui.Autonomous=true;Draw(ui);Check(NativeFrame.Has("F7") && NativeFrame.Has("F8"),"Closed-chat hints retain configured controls");
-                ui.ShowDrivingHud=false;Draw(ui);Check(NativeFrame.Ops.Count==0,"Hiding task HUD also hides closed-chat hints");
+                ui.ShowDrivingHud=false;ui.CurrentSpeedKmh=73;Draw(ui);
+                Check(NativeFrame.Has("73") && NativeFrame.Has("KM/H") && !NativeFrame.Has("F8"),"Actual vehicle speed remains visible when task HUD is hidden");
+                ui.ShowVehicleSpeed=false;Draw(ui);Check(NativeFrame.Ops.Count==0,"Both independent HUD toggles can hide all panels");
+                ui.ShowVehicleSpeed=true;ui.OnFoot=true;Draw(ui);Check(NativeFrame.Ops.Count==0,"Speedometer hides on foot");
+                ui.IsOpen=true;Select(ui,4);Draw(ui);Click(ui,NativeFrame.Find("Vehicle speed: ON"));
+                Check(ui.TakeUiPlan().Action=="speedometer_toggle","HUD menu dispatches independent vehicle speed toggle");
+                Draw(ui);Click(ui,NativeFrame.Find("Random mode: OFF"));
+                Check(ui.TakeUiPlan().Action=="random_on","Random mode is accessible in the native menu");
             }
             var viewport=new HudMenuViewport(.2f,.5f,.7f,99);
             Check(Math.Abs(viewport.Offset-.2f)<.00001f && !viewport.Contains(.49f,.03f) && !viewport.Contains(.19f,.03f) && viewport.Contains(.47f,.03f),"Viewport clamps scrolling and excludes partially visible controls");

@@ -19,6 +19,8 @@ async function fixture() {
   const requests = [];
   let disconnected = false;
   const state = { actor: 'Michael', status: 'Chill drive / 45 km/h', active: true, route: 'To Paleto Bay', messages: [], places: [],
+    speedometerVisible: true, driving: {speedKmh: 60, actualSpeedKmh: 53, style: 'normal', canUse: true},
+    randomMode: {active:false,status:'Random mode off.',canStart:true},
     favorites: { ready: true, canUse: true, items: [] },
     timedDrive: {active:false,canStart:true,stage:'idle',status:'Choose how long to drive before returning.',minutes:0,remainingSeconds:0},
     tour: { active: false, canStart: true, id: 'none', status: 'Choose a coastal or countryside drive.', result: 'idle', step: 0, total: 0 },
@@ -209,4 +211,43 @@ test('timed controls cannot start on pause, blocked gameplay, older snapshots or
   vm.runInContext('renderTimed(undefined,false)', f.context); assert.equal(f.elements.timedStart.disabled,true);
   f.disconnect(); await vm.runInContext('poll()',f.context);
   assert.match(f.elements.timedState.textContent,/disconnected/); assert.equal(f.elements.timedStart.disabled,true);
+});
+
+test('driving buttons update speed and traffic style without stop or composer changes', async () => {
+  const f = await fixture();f.elements.prompt.value='Unsent request';
+  f.elements.targetSpeed.value='135';await f.elements.applySpeed.onclick();
+  assert.deepEqual(JSON.parse(f.requests.at(-1).options.body),{text:'Set speed to 135 km/h'});
+  await f.elements.rushDriving.onclick();assert.deepEqual(JSON.parse(f.requests.at(-1).options.body),{text:'Drive fast'});
+  await f.elements.normalDriving.onclick();assert.deepEqual(JSON.parse(f.requests.at(-1).options.body),{text:'Normal driving'});
+  assert.equal(f.elements.prompt.value,'Unsent request');assert.equal(f.elements.route.textContent,'To Paleto Bay');
+  assert.ok(!f.requests.some(r=>r.url==='/api/stop'));
+});
+test('invalid speed does not queue a request', async () => {
+  const f = await fixture();const before=f.requests.length;
+  for(const value of ['0','161','90.5','invalid']){f.elements.targetSpeed.value=value;await f.elements.applySpeed.onclick();}
+  assert.equal(f.requests.length,before);assert.match(f.elements.notice.textContent,/15 to 160/);
+});
+test('speed HUD follows observed state independently of task HUD', async () => {
+  const f = await fixture();await f.elements.speedometer.onclick();
+  assert.deepEqual(JSON.parse(f.requests.at(-1).options.body),{text:'Hide speedometer'});
+  assert.equal(f.elements.speedometer.textContent,'Vehicle speed: ON');
+  f.state.speedometerVisible=false;f.state.taskHudVisible=false;vm.runInContext('render('+JSON.stringify(f.state)+')',f.context);
+  assert.equal(f.elements.speedometer.textContent,'Vehicle speed: OFF');assert.equal(f.elements.taskHud.textContent,'Show task HUD');
+  await f.elements.speedometer.onclick();assert.deepEqual(JSON.parse(f.requests.at(-1).options.body),{text:'Show speedometer'});
+  assert.match(f.elements.drivingState.textContent,/Actual: 53 km\/h/);
+});
+test('random mode starts and stops through local text commands and observed state', async () => {
+  const f = await fixture();assert.equal(f.elements.randomOff.disabled,true);await f.elements.randomOn.onclick();
+  assert.deepEqual(JSON.parse(f.requests.at(-1).options.body),{text:'Start random mode'});
+  f.state.randomMode.active=true;f.state.randomMode.status='Random mode / visiting Mirror Park';vm.runInContext('renderVibe('+JSON.stringify(f.state)+')',f.context);
+  assert.equal(f.elements.randomOff.disabled,false);assert.equal(f.elements.randomOn.attributes['aria-pressed'],'true');
+  await f.elements.randomOff.onclick();assert.deepEqual(JSON.parse(f.requests.at(-1).options.body),{text:'Stop random mode'});
+});
+test('pause, mission state, disconnect and older versions disable new controls', async () => {
+  const f = await fixture();f.state.paused=true;vm.runInContext('renderVibe('+JSON.stringify(f.state)+')',f.context);
+  let before=f.requests.length;await f.elements.rushDriving.onclick();await f.elements.randomOn.onclick();assert.equal(f.requests.length,before);
+  f.state.paused=false;f.state.driving.canUse=false;f.state.randomMode.canStart=false;vm.runInContext('renderVibe('+JSON.stringify(f.state)+')',f.context);
+  assert.equal(f.elements.applySpeed.disabled,true);assert.equal(f.elements.randomOn.disabled,true);
+  vm.runInContext('renderVibe({})',f.context);assert.equal(f.elements.speedometer.disabled,true);
+  f.disconnect();await vm.runInContext('poll()',f.context);assert.equal(f.elements.rushDriving.disabled,true);assert.equal(f.elements.randomOff.disabled,true);
 });

@@ -40,6 +40,9 @@ namespace FiveVibe
         private Vector3 lastPosition;
         private Vector3 destination;
         private int speedKmh;
+        private string drivingStyle="normal";
+        private readonly RandomVibeSession randomVibe=new RandomVibeSession();
+        private bool dispatchingRandom;
         private bool hasDestination;
         private string brakingMessage;
         private readonly WorldActions worldActions;
@@ -78,16 +81,19 @@ namespace FiveVibe
             openKey = settings.GetValue("Chat", "OpenKey", Keys.F7);
             takeoverKey = settings.GetValue("Chat", "TakeOverKey", Keys.F8);
             if (takeoverKey == openKey) takeoverKey = Keys.F8 == openKey ? Keys.F9 : Keys.F8;
-            speedKmh = Math.Max(15, Math.Min(90, settings.GetValue("Driving", "CruiseSpeedKmh", 45)));
+            speedKmh = Math.Max(15, Math.Min(DrivingCommands.MaximumSpeed, settings.GetValue("Driving", "CruiseSpeedKmh", 45)));
             searchRadius = Math.Max(20, Math.Min(150, settings.GetValue("Driving", "SearchRadiusMeters", 100)));
             preferencesPath=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"FiveVibe","preferences.json");
             bool hudDefault=settings.GetValue("HUD","ShowTaskHud",settings.GetValue("HUD", "CompactDrivingHud", true));
             try { chat.ShowDrivingHud=HudPreferences.Load(preferencesPath,hudDefault); }
             catch(Exception) { chat.ShowDrivingHud=hudDefault; }
+            bool speedDefault=settings.GetValue("HUD","ShowVehicleSpeed",true);
+            try {chat.ShowVehicleSpeed=HudPreferences.LoadSpeed(preferencesPath,speedDefault);}
+            catch(Exception) {chat.ShowVehicleSpeed=speedDefault;}
             hudKey=settings.GetValue("HUD","ToggleKey",Keys.F9);
             if(hudKey==openKey || hudKey==takeoverKey) hudKey=Keys.F10;
             chat.HudToggleKeyName=hudKey.ToString();
-            spectatorCamera=new SpectatorCamera(message=>chat.Add(false,message),settings.GetValue("Camera","Letterbox",true),settings.GetValue("Camera","AutoCinemaDriving",true));
+            spectatorCamera=new SpectatorCamera(message=>chat.Add(false,message),settings.GetValue("Camera","AutoCinemaDriving",true));
             realWorld=new RealWorldService(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"FiveVibe","real-world.json"),message=>chat.Add(false,message));
             cameraKey=settings.GetValue("Camera","CycleKey",Keys.F10);
             if(cameraKey==openKey || cameraKey==takeoverKey || cameraKey==hudKey || cameraKey==Keys.F4 || cameraKey==Keys.F6)
@@ -119,7 +125,7 @@ namespace FiveVibe
                 if (e.KeyCode == takeoverKey) { chat.IsOpen = false; Stop("You have control."); return; }
                 if (e.KeyCode == hudKey) { SetTaskHud(!chat.ShowDrivingHud); return; }
                 if (Game.IsPaused || Function.Call<bool>(Hash.IS_CUTSCENE_ACTIVE)) return;
-                if(e.KeyCode==cameraKey) { spectatorCamera.Execute(e.Shift?"camera_next":"camera_cycle"); return; }
+                if(e.KeyCode==cameraKey) { spectatorCamera.Execute("camera_cycle"); return; }
                 if(e.KeyCode==Keys.V && !chat.IsOpen) spectatorCamera.ReleaseForManualView();
                 if (e.KeyCode == Keys.F4 || e.KeyCode == Keys.F6) { chat.IsOpen = false; return; }
                 if (e.KeyCode == openKey) { chat.IsOpen = !chat.IsOpen; return; }
@@ -140,6 +146,8 @@ namespace FiveVibe
             if (Function.Call<bool>(Hash.NETWORK_IS_SESSION_ACTIVE)) { chat.Add(false, "FiveVibe runs in Story Mode."); return; }
             FavoriteRequest favoriteRequest;
             if(FavoriteCommands.TryParse(prompt,favorites,out favoriteRequest)) { HandleFavorite(favoriteRequest,false); return; }
+            CommandPlan vibePlan;
+            if(VibeCommands.TryParse(prompt,out vibePlan) || DrivingCommands.TryParse(prompt,speedKmh,out vibePlan)) {Execute(vibePlan);return;}
             CommandPlan timedPlan;
             if(TimedDriveCommands.TryParse(prompt,speedKmh,out timedPlan,false)) {Execute(timedPlan);return;}
             CommandPlan tourPlan;
@@ -147,7 +155,7 @@ namespace FiveVibe
             CommandPlan radioPlan;
             if(RadioCommands.TryParse(prompt,out radioPlan)) { Execute(radioPlan); return; }
             var directPilot = LocalPlanner.Parse(prompt, speedKmh);
-            if(CameraCommands.IsCamera(directPilot.Action) || directPilot.Action.StartsWith("realtime_",StringComparison.Ordinal)) { Execute(directPilot); return; }
+            if(directPilot.Action=="speed" || directPilot.Action.StartsWith("hud_",StringComparison.Ordinal) || CameraCommands.IsCamera(directPilot.Action) || directPilot.Action.StartsWith("realtime_",StringComparison.Ordinal)) { Execute(directPilot); return; }
             CancelPlanning();
             if (directPilot.Action == "mission_auto") { Execute(directPilot); return; }
             if (!useOpenAi) { Execute(LocalPlanner.Parse(prompt, speedKmh)); return; }
@@ -161,6 +169,7 @@ namespace FiveVibe
                 ActorName(ped), phase, speedKmh, ped.IsInVehicle(), ped.Position.X, ped.Position.Y, ped.Position.Z);
             context += worldActions.Context();
             context += missionPilot.Context();
+            context += "; driving_style="+drivingStyle+"; random_mode="+randomVibe.Active+"; speedometer_visible="+chat.ShowVehicleSpeed;
             context += "; themed_tour="+tour.Status;
             context += "; timed_drive="+timedDrive.Status;
             context += "; spectator_camera="+spectatorCamera.ModeName+"; camera_status="+spectatorCamera.Status;
@@ -190,6 +199,7 @@ namespace FiveVibe
                 { ResetWorldOverrides(); chat.Add(false,"World overrides released for the mission."); }
                 if (missionActive && !missionWasActive && (phase != "idle" || worldActions.Active || planning != null))
                 {
+                    randomVibe.Stop();
                     CancelPlanning();
                     worldActions.Cancel(false);
                     ReleaseControl(false);
@@ -202,6 +212,7 @@ namespace FiveVibe
                 if (blocked)
                 {
                     spectatorCamera.Suspend();
+                    randomVibe.Stop();
                     CancelPlanning();
                     worldActions.Cancel(false);
                     ReleaseControl(false);
@@ -225,6 +236,7 @@ namespace FiveVibe
                 var afterSwitch = worldActions.TakeAfterSwitch();
                 if (afterSwitch != null) Execute(afterSwitch);
                 UpdateDriving();
+                UpdateRandomVibe();
                 if (chat.IsOpen) Function.Call(Hash.DISABLE_ALL_CONTROL_ACTIONS, 0);
                 else if (phase != "idle" || worldActions.BlocksMovement || missionPilot.BlocksMovement)
                 {
@@ -234,26 +246,26 @@ namespace FiveVibe
                 }
                 worldActions.ApplyInput();
                 missionPilot.ApplyInput();
-                chat.Status = missionPilot.Active ? missionPilot.Status : worldActions.Active ? worldActions.Status : phase == "idle" ? "Ready" : phase == "entering" ? "Approaching car" :
-                    phase == "leaving" ? "Leaving vehicle" : phase=="changing" ? "Changing vehicle" : phase == "braking" ? "Stopping" : "Chill drive  /  " + speedKmh + " km/h";
+                chat.Status = missionPilot.Active ? missionPilot.Status : worldActions.Active ? worldActions.Status : phase == "idle" ? (randomVibe.Active?randomVibe.Status:"Ready") : phase == "entering" ? "Approaching car" :
+                    phase == "leaving" ? "Leaving vehicle" : phase=="changing" ? "Changing vehicle" : phase == "braking" ? "Stopping" : (drivingStyle=="rush"?"Rush drive  /  ":"Chill drive  /  ") + speedKmh + " km/h";
                 string actor = ActorName(Game.Player.Character);
                 chat.CharacterName = actor == "current character" ? "Player" : CultureInfo.InvariantCulture.TextInfo.ToTitleCase(actor);
                 chat.HudColorId = actor == "franklin" ? 144 : actor == "trevor" ? 145 : 143;
-                chat.Autonomous = phase != "idle" || worldActions.Active || missionPilot.Active;
+                chat.Autonomous = phase != "idle" || worldActions.Active || missionPilot.Active || randomVibe.Active;
                 try { spectatorCamera.UpdateDriving(phase=="driving" || missionPilot.Driving); spectatorCamera.Tick(chat.Autonomous,chat.IsOpen); }
                 catch(Exception) { spectatorCamera.ReleaseForManualView(); chat.Add(false,"Camera unavailable. Gameplay camera restored; your active action continues."); }
                 chat.CameraMode=spectatorCamera.ModeName;
                 chat.CameraState=spectatorCamera.Status;
-                chat.CameraLetterbox=spectatorCamera.Letterbox;
                 chat.AutoCinemaDriving=spectatorCamera.AutoCinema;
                 chat.RealClock=realWorld.ClockEnabled; chat.RealWeather=realWorld.WeatherEnabled;
                 chat.OnFoot = !Game.Player.Character.IsInVehicle();
                 chat.WorldTime=ClockLabel();
                 chat.WeatherName=World.Weather.ToString();
                 chat.ClockFrozen=GameClock.IsPaused && !realClockApplied;
-                var displayedCar = missionPilot.Active ? Game.Player.Character.CurrentVehicle : vehicle;
+                chat.RandomMode=randomVibe.Active;
+                var displayedCar = Game.Player.Character.CurrentVehicle;
                 chat.CurrentSpeedKmh = displayedCar != null && displayedCar.Exists() ? (int)Math.Round(displayedCar.Speed * 3.6f) : 0;
-                chat.Route = missionPilot.Active ? "Franklin and Lamar / " + missionPilot.Objective : worldActions.Active ? worldActions.GoalLabel : timedDrive.Active ? timedDrive.Status : tour.Active ? tour.Status : hasDestination && drivingPlan != null ? "To " + destinationLabel : "Free roam";
+                chat.Route = missionPilot.Active ? "Franklin and Lamar / " + missionPilot.Objective : worldActions.Active ? worldActions.GoalLabel : timedDrive.Active ? timedDrive.Status : tour.Active ? tour.Status : randomVibe.Active ? randomVibe.Status : hasDestination && drivingPlan != null ? "To " + destinationLabel : "Free roam";
                 string clickedCommand = chat.Draw(openKey.ToString(), takeoverKey.ToString());
                 if (clickedCommand != null) Submit(clickedCommand);
                 var uiPlan=chat.TakeUiPlan();
@@ -285,11 +297,13 @@ namespace FiveVibe
             lastCompanionUpdate = now;
             companion.Publish(new JavaScriptSerializer().Serialize(new {
                 actor=CultureInfo.InvariantCulture.TextInfo.ToTitleCase(ActorName(Game.Player.Character)),
-                status=chat.Status, route=chat.Route, active=phase != "idle" || worldActions.Active || missionPilot.Active,
+                status=chat.Status, route=chat.Route, active=phase != "idle" || worldActions.Active || missionPilot.Active || randomVibe.Active,
                 paused=Game.IsPaused, thinking=chat.Thinking, provider=chat.Provider,
-                taskHudVisible=chat.ShowDrivingHud, clockFrozen=GameClock.IsPaused && !realClockApplied,
+                taskHudVisible=chat.ShowDrivingHud, speedometerVisible=chat.ShowVehicleSpeed,
+                driving=new {speedKmh=speedKmh,style=drivingStyle,canUse=CanUseFavorites() && !Function.Call<bool>(Hash.GET_MISSION_FLAG),actualSpeedKmh=chat.CurrentSpeedKmh},
+                randomMode=new {active=randomVibe.Active,status=randomVibe.Status,canStart=CanUseFavorites() && !Function.Call<bool>(Hash.GET_MISSION_FLAG)}, clockFrozen=GameClock.IsPaused && !realClockApplied,
                 gameTime=ClockLabel(), weather=World.Weather.ToString(),
-                camera=new { mode=spectatorCamera.ModeName, status=spectatorCamera.Status, letterbox=spectatorCamera.Letterbox, cycleKey=cameraKey.ToString(), autoDriving=spectatorCamera.AutoCinema },
+                camera=new { mode=spectatorCamera.ModeName, status=spectatorCamera.Status, cycleKey=cameraKey.ToString(), autoDriving=spectatorCamera.AutoCinema },
                 radio=vehicleRadio.Snapshot(),
                 timedDrive=new {active=timedDrive.Active,stage=timedDrive.Stage,status=timedDrive.Status,minutes=timedDrive.Minutes,remainingSeconds=timedDrive.RemainingSeconds,canStart=CanUseFavorites() && !Function.Call<bool>(Hash.GET_MISSION_FLAG)},
                 tour=new {active=tour.Active,id=tour.Profile==null?"none":tour.Profile.Id,status=tour.Status,result=tour.Result,step=tour.Active?tour.Index+1:0,total=tour.Profile==null?0:tour.Profile.Stops.Length,canStart=CanUseFavorites() && !Function.Call<bool>(Hash.GET_MISSION_FLAG)},
@@ -399,6 +413,29 @@ namespace FiveVibe
             }
             if(plan.Action.StartsWith("hud_",StringComparison.Ordinal))
             { SetTaskHud(plan.Action=="hud_show" || (plan.Action=="hud_toggle" && !chat.ShowDrivingHud)); return; }
+            if(plan.Action.StartsWith("speedometer_",StringComparison.Ordinal))
+            {SetSpeedometer(plan.Action=="speedometer_show" || plan.Action=="speedometer_toggle" && !chat.ShowVehicleSpeed);return;}
+            if(plan.Action=="random_off") {if(randomVibe.Active)BrakeOrRelease();else chat.Add(false,"Random mode is already off. Your current action continues.");return;}
+            if(plan.Action=="random_on")
+            {
+                if(!CanUseFavorites() || Function.Call<bool>(Hash.GET_MISSION_FLAG)) {chat.Add(false,"Random mode starts in free roam after GTA returns control.");return;}
+                if(randomVibe.Active) {chat.Add(false,"Random mode is already running. F8 takes over.");return;}
+                CancelPlanning();missionPilot.Cancel();worldActions.Cancel();ReleaseControl();
+                randomVibe.Start(Game.Player.Character.Handle,Game.GameTime);chat.IsOpen=false;
+                chat.Add(false,"Random mode on: destinations, short strolls and native greetings. F8 stops it. Sessions last up to one hour.");return;
+            }
+            if(plan.Action=="speed")
+            {
+                CancelPlanning();speedKmh=plan.SpeedKmh;
+                if(plan.DrivingStyle!="unchanged")drivingStyle=plan.DrivingStyle;
+                if(drivingPlan!=null) {drivingPlan.SpeedKmh=speedKmh;drivingPlan.DrivingStyle=drivingStyle;}
+                if(phase=="driving" && driver!=null && driver.Exists())
+                {
+                    Function.Call(Hash.SET_DRIVE_TASK_CRUISE_SPEED,driver.Handle,speedKmh/3.6f);
+                    driver.VehicleDrivingFlags=DrivingFlags();
+                }
+                chat.Add(false,"Target speed: "+speedKmh+" km/h. "+(drivingStyle=="rush"?"Rush driving: overtake traffic and ignore lights.":"Normal driving: respect traffic and lights.")+(phase=="driving"?" Route unchanged.":" Applies to your next free-roam drive."));return;
+            }
             if(plan.Action=="world_settings") { ApplyWorldSettings(plan); return; }
             if (plan.Action == "help")
             {
@@ -417,6 +454,7 @@ namespace FiveVibe
                 else chat.Add(false, "No known mission marker is available for this character. You can set a waypoint instead.");
                 return;
             }
+            if(!dispatchingRandom)randomVibe.Stop();
             if (plan.Action == "mission_auto")
             {
                 if (Function.Call<bool>(Hash.GET_MISSION_FLAG) && !MissionPilot.IsSupportedMissionRunning())
@@ -435,15 +473,6 @@ namespace FiveVibe
             {
                 ReleaseControl();
                 worldActions.Start(plan);
-                return;
-            }
-            if (plan.Action == "speed")
-            {
-                if (phase != "driving") { chat.Add(false, "Start a drive or choose a destination first."); return; }
-                speedKmh = plan.SpeedKmh;
-                drivingPlan.SpeedKmh = speedKmh;
-                Function.Call(Hash.SET_DRIVE_TASK_CRUISE_SPEED, driver.Handle, speedKmh / 3.6f);
-                chat.Add(false, "Target speed updated to " + speedKmh + " km/h.");
                 return;
             }
             if (plan.Action == "leave")
@@ -504,6 +533,7 @@ namespace FiveVibe
             if(plan.Action=="timed_drive") {timedOrigin=origin;timedDrive.Start(plan.DurationMinutes);}
             driver = ped;
             speedKmh = plan.SpeedKmh;
+            if(plan.DrivingStyle!="unchanged")drivingStyle=plan.DrivingStyle;
             drivingPlan = plan;
             hasDestination = useDestination;
             destination = target;
@@ -541,9 +571,33 @@ namespace FiveVibe
         private void SetTaskHud(bool visible)
         {
             chat.ShowDrivingHud=visible;
-            try { HudPreferences.Save(preferencesPath,visible); }
+            try { HudPreferences.Save(preferencesPath,visible,chat.ShowVehicleSpeed); }
             catch(Exception) { chat.Add(false,"HUD changed for this session; preferences could not be saved."); }
             chat.Add(false,visible ? "Task HUD shown. "+hudKey+" toggles it." : "Task HUD hidden. Autonomy continues; "+takeoverKey+" still takes over.");
+        }
+        private void SetSpeedometer(bool visible)
+        {
+            chat.ShowVehicleSpeed=visible;
+            try {HudPreferences.Save(preferencesPath,chat.ShowDrivingHud,visible);}
+            catch(Exception) {chat.Add(false,"Speedometer changed for this session; preferences could not be saved.");}
+            chat.Add(false,visible?"Vehicle speedometer on. Shows the current vehicle's actual speed.":"Vehicle speedometer off. Your active action continues.");
+        }
+        private VehicleDrivingFlags DrivingFlags()
+        {
+            return drivingStyle=="rush" ? VehicleDrivingFlags.DrivingModeAvoidVehicles | VehicleDrivingFlags.AllowGoingWrongWay |
+                VehicleDrivingFlags.ChangeLanesAroundObstructions | VehicleDrivingFlags.UseShortCutLinks : (VehicleDrivingFlags)786603;
+        }
+        private void UpdateRandomVibe()
+        {
+            if(!randomVibe.Active)return;
+            if(Function.Call<bool>(Hash.GET_MISSION_FLAG) || !randomVibe.Valid(Game.Player.Character.Handle,Game.GameTime))
+            {Stop("Random mode ended. You have control.");return;}
+            if(randomVibe.EndShortActivity(Game.GameTime) && worldActions.Active)worldActions.Cancel();
+            var ped=Game.Player.Character;
+            var next=randomVibe.Next(Game.GameTime,phase!="idle" || worldActions.Active || missionPilot.Active || planning!=null,ped.IsInVehicle(),ped.Position.X,ped.Position.Y,speedKmh);
+            if(next==null)return;
+            chat.Add(false,randomVibe.Status+".");dispatchingRandom=true;
+            try {Execute(next);} finally {dispatchingRandom=false;}
         }
         private void ApplyWorldSettings(CommandPlan plan)
         {
@@ -613,11 +667,11 @@ namespace FiveVibe
 
         private void StartDriving()
         {
-            const int calmDriving = 786603;
+            int flags=(int)DrivingFlags();
             if (hasDestination)
                 Function.Call(Hash.TASK_VEHICLE_DRIVE_TO_COORD_LONGRANGE, driver.Handle, vehicle.Handle,
-                    destination.X, destination.Y, destination.Z, speedKmh / 3.6f, calmDriving, 12f);
-            else Function.Call(Hash.TASK_VEHICLE_DRIVE_WANDER, driver.Handle, vehicle.Handle, speedKmh / 3.6f, calmDriving);
+                    destination.X, destination.Y, destination.Z, speedKmh / 3.6f, flags, 12f);
+            else Function.Call(Hash.TASK_VEHICLE_DRIVE_WANDER, driver.Handle, vehicle.Handle, speedKmh / 3.6f, flags);
             phase = "driving";
             phaseStarted = lastMoveTime = Game.GameTime;
             lastPosition = vehicle.Position;
@@ -693,6 +747,7 @@ namespace FiveVibe
 
         private void Stop(string message)
         {
+            randomVibe.Stop();
             CancelPlanning();
             spectatorCamera.Reset();
             missionPilot.Cancel();
@@ -703,6 +758,7 @@ namespace FiveVibe
 
         private void BrakeOrRelease()
         {
+            randomVibe.Stop();
             tour.Cancel();
             timedDrive.Cancel();
             CancelPlanning();
@@ -748,7 +804,7 @@ namespace FiveVibe
 
         private void Fail(Exception error)
         {
-            try { CancelPlanning(); spectatorCamera.Reset(); missionPilot.Cancel(); worldActions.Cancel(); ReleaseControl(); chat.Add(false, "Action stopped: " + error.Message); }
+            try { randomVibe.Stop(); CancelPlanning(); spectatorCamera.Reset(); missionPilot.Cancel(); worldActions.Cancel(); ReleaseControl(); chat.Add(false, "Action stopped: " + error.Message); }
             catch { phase = "idle"; }
         }
 

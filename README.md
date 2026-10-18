@@ -12,9 +12,9 @@ FiveVibe includes a native in-game chat and a local browser companion. Requests 
 
 AI interprets text requests into validated game actions; GTA's native tasks and controls move the character. The mod does not generate images, models, textures, voices or NPC dialogue, and its release contains no AI-generated game assets. Basic local commands work without AI or an API key. Website imagery is separate from the mod download; original gameplay captures, AI-assisted presentation edits and concept illustrations are labelled separately.
 
-[Website](https://fivevibe.gta-vi.it) · [Download v0.13.1 (experimental pre-release)](https://github.com/AndreaZero/FiveVibe/releases/tag/v0.13.1) · [Project status](docs/status.md) · [Publication guide and description draft](docs/publishing.md)
+[Website](https://fivevibe.gta-vi.it) · [Download v0.14.0 (experimental pre-release)](https://github.com/AndreaZero/FiveVibe/releases/tag/v0.14.0) · [Project status](docs/status.md) · [Publication guide and description draft](docs/publishing.md)
 
-**Status: experimental, v0.13.1.** Free-roam driving has been confirmed by the original user. Timed drives with return, themed drives, favorites, vehicle radio controls, automatic driving cinema, vehicle categories and real-world time/weather are implemented and logic-tested; their native behavior still needs in-game validation. Mission Pilot implements a first full-flow attempt for **Franklin and Lamar**; no successful autonomous playthrough has yet been observed. Background gameplay depends on GTA continuing to run while unfocused.
+**Status: experimental, v0.14.0.** Free-roam driving has been confirmed by the original user. Rush/normal driving, the independent vehicle speedometer, random free-roam sessions, timed drives with return, themed drives, favorites, vehicle radio controls, native automatic driving cinema, vehicle categories and real-world time/weather are implemented and logic-tested; their native behavior still needs in-game validation. Mission Pilot implements a first full-flow attempt for **Franklin and Lamar**; no successful autonomous playthrough has yet been observed. Background gameplay depends on GTA continuing to run while unfocused.
 
 ## Captured in GTA
 
@@ -171,8 +171,7 @@ Set Enabled=false to disable the browser listener or choose a free port. There i
 | Esc | Return to Chat from a submenu; close from Chat |
 | F8 | Cancel pending AI and autonomy; take over |
 | F9 | Show / hide the active task HUD |
-| F10 | Cycle camera: gameplay → first person → third person → cinema director → GTA cinema |
-| Shift+F10 | Next director shot; enables the director if needed |
+| F10 | Cycle camera: gameplay → first person → third person → GTA cinema |
 | Tab / Shift+Tab | Fill a quick request |
 | Up / Down | Recall requests |
 | Page Up / Page Down / mouse wheel | Scroll Chat, World or Camera; browse Places/Ideas pages |
@@ -225,32 +224,35 @@ Radio commands act on the current vehicle and preserve the drive, destination, s
 
 No music is downloaded, generated or included. FiveVibe does not unlock stations, force radios onto unsupported vehicles, start mobile radio or keep overriding manual changes. Scripted scenes can control audio; retuning is a one-shot request, not a persistent preference for future vehicles. Radio behavior has passed automated and simulated browser checks but still needs an actual in-game audio test.
 
+## Driving pace and traffic
+
+Say **“vai veloce”**, **“arriva in fretta”** or **“Drive fast”** to target 120 km/h with rush driving. **“Non seguire il traffico”** or **“Ignore traffic”** selects rush style while retaining your current target speed. Rush asks GTA to overtake vehicles, ignore traffic lights and use an oncoming lane when needed. **“Guida normalmente”** / **“Normal driving”** restores traffic rules and a 45 km/h target.
+
+Set an explicit target with **“Vai a 130 km/h”** / **“Set speed to 130 km/h”**, between 15 and 160 km/h. Changes during an active FiveVibe drive preserve its destination, tour progress, return timer and camera selection. When idle, they configure the next free-roam drive. The companion has a target-speed field and normal/rush buttons. A combined request such as “Vai veloce e portami a Paleto Bay” starts one destination with that style. GTA pathfinding, bends, obstacles and the vehicle determine the actual speed; the number is not a guaranteed cruising speed. Mission Pilot retains its own objective-specific driving controller.
+
+## Vehicle speedometer and random mode
+
+**F7 > HUD > Vehicle speed**, the companion button, or **“Mostra tachimetro” / “Hide speedometer” / “Toggle speedometer”** controls an independent HUD of the current vehicle's actual speed in km/h. It also works while driving a car or motorcycle manually. It hides on foot and while chat is open. F9 still toggles only the task panel. Both HUD choices are saved in per-user preferences; an existing INI without the new `HUD.ShowVehicleSpeed` key defaults to enabled.
+
+**“Attiva random” / “Start random mode”**, the companion or **F7 > HUD > Random mode** starts a local free-roam session with the current protagonist. It chooses outdoor catalog destinations, short strolls and attempts native greetings. It finds a nearby available vehicle through the ordinary drive flow when needed; no vehicle is spawned. An activity completes or times out before another is chosen, with a five-second pause. Foot activities last at most 25 seconds; sessions last at most one hour of game time and pause with GTA. No repeated AI requests are needed.
+
+**“Disattiva random” / “Stop random mode”**, ordinary Stop or **F8** ends the session. A new movement command replaces it; radio, camera, speed/style, HUD and world controls keep it running. Missions, death, loss of player control, character changes and native errors disarm it. Random mode is not a campaign player and does not survive script reloads.
+
 ## Watch the ride
 
-The cinema director starts automatically when AI driving begins, including Mission Pilot driving, and restores the previous gameplay view when that drive ends or you take over with **F8 / Stop**. Vehicle searching and entry keep the gameplay camera. Toggle **Auto cinema while AI drives** in **F7 > Camera** or the companion, or say “Disable automatic cinema camera”.
+Automatic driving cinema now uses **GTA's original vehicle cinematic camera**. The custom FiveVibe director, its six shots, probes, next-shot command and letterbox controls have been removed. GTA chooses its own shots.
 
-You can choose a view yourself through **F7 > Camera**, the companion's **Watch the ride** buttons, or requests such as “Metti la camera cinema”, “Switch to first person”, “Use GTA cinematic camera”, or “Restore normal camera”. A manual choice takes priority for that drive; the next drive uses automatic cinema again if enabled. Camera requests work locally without an API call and preserve the active action.
+Choose **Gameplay**, **First person / cockpit**, **Third person** or **GTA native cinema** in F7 > Camera, the companion, or by chat. “Metti la camera cinema” and “Enable cinematic camera” both select GTA cinema. **F10** cycles those four views. **F8 / Stop** restores the saved gameplay follow views, and the normal **V** camera key releases FiveVibe's view override. Camera requests preserve the current activity; a manual selection takes priority during the current drive.
 
-- **First person:** native player/cockpit view, on foot or in a vehicle.
-- **Third person:** GTA's medium follow camera.
-- **Cinema director:** six timed shots (chase, side tracking, front quarter, high wide, low tracking and passing portrait), with slow framing drift, damped movement and speed-adjusted field of view. It watches an active AI action; when idle it waits for the next one.
-- **GTA cinema:** the game's original vehicle cinematic camera; it waits for a vehicle when on foot.
-- **Gameplay:** restores the view settings saved when the first camera override was selected.
+Automatic cinema starts only when driving begins, including Mission Pilot driving. Acquisition/entry retain gameplay. Opening chat temporarily releases cinematic mode; closing it resumes the selected view. Pause, cutscenes, fades, death and character transitions also suspend it. FiveVibe does not create a scripted rendering camera. Native cinema waits for a vehicle when on foot.
 
-**F10** cycles modes; **Shift+F10** cuts to the next director shot. **F8 / Stop** returns control and restores the gameplay camera. Pressing the game's normal **V** camera key also releases FiveVibe's camera override. Hiding the task HUD with F9 leaves the camera running.
-
-The director checks for obstructions and shrinks or abandons blocked shots. It yields during pause, death, character transitions, fades, cutscenes and another script's rendering camera, then resumes once gameplay is available. It creates and destroys only its own camera. Optional letterbox bars are hidden while chat is open; Camera menu and companion controls toggle them for the current session. This is live viewing, with no video recording or export.
-
-New camera behavior is compiled and logic-tested but **has not yet been visually validated in GTA Enhanced**. Tight spaces, interiors and interactions with other camera mods need real-game testing.
-
-Defaults are used even when an existing INI has no Camera section. To customize:
+Defaults apply even to existing INI files:
 
     [Camera]
     CycleKey=F10
-    Letterbox=true
     AutoCinemaDriving=true
 
-If the cycle key conflicts with FiveVibe's chat, takeover, HUD, trainer or console bindings, a free fallback is selected and shown in the Camera menu/companion. Each script load starts with the gameplay view; automatic cinema waits for AI driving. The auto-cinema menu toggle applies to the current session; the INI supplies its startup default.
+The old `Letterbox` INI key is ignored. The auto-cinema toggle changes the current session; its INI value supplies the startup default. New native behavior still needs a real GTA Enhanced gameplay pass.
 
 ## What is still limited
 

@@ -10,6 +10,13 @@ namespace FiveVibe
     public sealed class HudPreferences
     {
         public bool ShowTaskHud { get; set; }
+        public bool? ShowVehicleSpeed {get;set;}
+        public static bool LoadSpeed(string path,bool fallback)
+        {
+            if(!File.Exists(path) || new FileInfo(path).Length>4096)return fallback;
+            var settings=new JavaScriptSerializer().Deserialize<HudPreferences>(File.ReadAllText(path));
+            return settings==null?fallback:settings.ShowVehicleSpeed??fallback;
+        }
         public static bool Load(string path, bool fallback)
         {
             if (!File.Exists(path)) return fallback;
@@ -18,12 +25,14 @@ namespace FiveVibe
             return settings==null ? fallback : settings.ShowTaskHud;
         }
         public static void Save(string path, bool visible)
+        {Save(path,visible,LoadSpeed(path,true));}
+        public static void Save(string path,bool visible,bool speedVisible)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             string stage=path+"."+Guid.NewGuid().ToString("N")+".tmp";
             try
             {
-                File.WriteAllText(stage,new JavaScriptSerializer().Serialize(new HudPreferences { ShowTaskHud=visible }),new UTF8Encoding(false));
+                File.WriteAllText(stage,new JavaScriptSerializer().Serialize(new HudPreferences { ShowTaskHud=visible,ShowVehicleSpeed=speedVisible }),new UTF8Encoding(false));
                 if(File.Exists(path)) File.Replace(stage,path,null); else File.Move(stage,path);
             }
             finally { if(File.Exists(stage)) File.Delete(stage); }

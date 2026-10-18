@@ -25,3 +25,5 @@ The five **highlighted presentation versions** use AI-assisted visual emphasis f
 The website uses WebP copies for delivery; its hero uses the unmodified driving-HUD capture as its source, without generative retouching. Full PNGs are available here for comparison. These are documentation/presentation assets, not files installed into GTA.
 
 Processing tool, constraints and exact prompts: [processing-prompts.md](processing-prompts.md). Game content and trademarks belong to their respective owners.
+
+These captures predate 0.14.0. They do not show the new independent speedometer, random mode or the switch from custom to GTA native automatic cinema.

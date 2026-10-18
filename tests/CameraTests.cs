@@ -14,19 +14,19 @@ internal static class CameraTests
             Check(Action("Switch to first person")=="camera_first","English first person");
             Check(Action("Metti visuale 1 persona")=="camera_first","Numeric first person");
             Check(Action("Passa alla terza persona")=="camera_third","Third person");
-            Check(Action("Attiva la camera cinema")=="camera_cinema","Custom cinema");
-            Check(Action("Set cinematic camera")=="camera_cinema","English cinema");
-            Check(Action("Voglio riprese cinematiche")=="camera_cinema","Casual cinematic request");
-            Check(Action("Use GTA cinematic camera")=="camera_native","Native cinema remains distinct");
+            Check(Action("Attiva la camera cinema")=="camera_native","Cinema uses GTA");
+            Check(Action("Set cinematic camera")=="camera_native","English cinema");
+            Check(Action("Voglio riprese cinematiche")=="camera_native","Casual cinematic request");
+            Check(Action("Use GTA cinematic camera")=="camera_native","Explicit native cinema");
             Check(Action("Metti cinema originale GTA")=="camera_native","Italian native cinema");
             Check(Action("Ripristina camera normale")=="camera_gameplay","Restore normal view");
             Check(Action("Restore normal camera")=="camera_gameplay","Companion restore works offline");
-            Check(Action("Toggle camera letterbox")=="camera_bars","Companion letterbox works offline");
+            Check(Action("Toggle camera letterbox")=="say","Companion letterbox works offline");
             Check(Action("Cambia visuale")=="camera_cycle","Cycle views");
-            Check(Action("Next shot")=="camera_next","Next shot");
-            Check(Action("Prossima inquadratura")=="camera_next","Italian next shot");
-            Check(Action("Nascondi le bande nere")=="camera_bars_off","Hide is not a toggle");
-            Check(Action("Show letterbox")=="camera_bars_on","Show is not a toggle");
+            Check(Action("Next shot")=="say","Next shot");
+            Check(Action("Prossima inquadratura")=="say","Italian next shot");
+            Check(Action("Nascondi le bande nere")=="say","Hide is not a toggle");
+            Check(Action("Show letterbox")=="say","Show is not a toggle");
             Check(Action("Non cambiare la camera in prima persona")=="say","Negated camera change does not execute");
             Check(Action("che bella questa camera")=="say","Casual camera mention does not execute");
             Check(Action("Drive to Paleto Bay")=="place","Camera parser preserves travel commands");
@@ -34,31 +34,60 @@ internal static class CameraTests
             bool rejected=false;
             try { CommandPlan.Create("camera_cinema","trevor",45); } catch(ArgumentException) {rejected=true;}
             Check(rejected,"A camera request cannot switch protagonist");
-            var clock=new CameraShotClock(); clock.Reset(100);
-            Check(!clock.Update(5000) && clock.Shot==0,"No rapid automatic cuts");
-            Check(clock.Update(8600) && clock.Shot==1,"Timed cut advances once");
-            clock.Next(9000); Check(clock.Shot==2 && clock.Progress(9000)==0,"Manual cut resets shot movement");
-            for(int i=0;i<4;i++) clock.Next(9001+i);
-            Check(clock.Shot==0,"Shot cycle wraps");
-            clock.Reset(Int32.MaxValue-100);
-            Check(clock.Update(unchecked(Int32.MaxValue-100+8500)),"Cut scheduler handles timer wrap");
-            for(int shot=0;shot<6;shot++) for(int subject=0;subject<2;subject++)
-            {
-                var start=CinemaFraming.Sample(shot,0,0,subject==1,4.5f);
-                var finish=CinemaFraming.Sample(shot,1,70,subject==1,4.5f);
-                Check(start.Height>.5 && finish.Height>.5,"Shot remains above ground");
-                Check(start.Fov>=38 && finish.Fov<=65,"Comfortable field of view");
-                Check(Math.Abs(start.Right)+Math.Abs(start.Forward)>3,"Camera stays outside subject");
-            }
-            Check(CinemaFraming.Clearance(10,true,4)<.4,"Obstruction brings camera inside the hit point");
-            Check(CinemaFraming.Clearance(10,true,.2f)==0,"No room for camera yields zero clearance");
-            Check(CinemaFraming.Clearance(10,false,0)==1,"Clear path preserves framing");
-            Check(CinemaFraming.Clearance(0,true,1)==0 && CinemaFraming.Clearance(Single.NaN,true,1)==0,"Invalid probe data cannot place a camera");
-            Check(CinemaFraming.Blend(.016f)>0 && CinemaFraming.Blend(.1f)<1,"Damping has no overshoot");
-            var invalid=CinemaFraming.Sample(-1,Single.NaN,Single.PositiveInfinity,true,Single.NaN);
-            Check(!Single.IsNaN(invalid.Right) && !Single.IsNaN(invalid.Fov),"Bad frame parameters remain bounded");
+            GTA.Native.Function.Reset();
+            var camera=new SpectatorCamera(message=>{});
+            camera.UpdateDriving(true);
+            Check(camera.Mode==SpectatorView.NativeCinema,"Auto drive chooses GTA native cinema");
+            camera.Tick(true,false);Check(GTA.Native.Function.Cinematic,"Native cinema is enabled");
+            camera.Tick(true,true);Check(!GTA.Native.Function.Cinematic && camera.Mode==SpectatorView.NativeCinema,"Chat suspends native shots without changing the selected view");
+            camera.Tick(true,false);Check(GTA.Native.Function.Cinematic,"Closing chat resumes GTA cinema");
+            GTA.Game.IsPaused=true;camera.Tick(true,false);Check(!GTA.Native.Function.Cinematic,"Pause releases owned native cinema");
+            GTA.Game.IsPaused=false;camera.Tick(true,false);Check(GTA.Native.Function.Cinematic,"Gameplay resume restores cinema");
+            camera.Execute("camera_first");camera.Tick(true,false);
+            Check(!GTA.Native.Function.Cinematic && GTA.Native.Function.PedView==4 && GTA.Native.Function.VehicleView==4,"First person restores native rendering and cockpit");
+            camera.UpdateDriving(true);Check(camera.Mode==SpectatorView.FirstPerson,"Manual choice survives the current drive");
+            camera.Reset();Check(camera.Mode==SpectatorView.Gameplay && GTA.Native.Function.PedView==2 && GTA.Native.Function.VehicleView==3,"Takeover restores prior follow views");
+            for(int i=0;i<4;i++)camera.Execute("camera_cycle");
+            Check(camera.Mode==SpectatorView.Gameplay,"Four native views cycle without a custom mode");
+            GTA.Native.Function.Cinematic=true;camera.Execute("camera_native");camera.Tick(true,false);camera.Reset();
+            Check(GTA.Native.Function.Cinematic,"An external cinematic camera is not owned or disabled");
+            GTA.Native.Function.Cinematic=false;camera.Execute("camera_native");GTA.Game.Player.Character.InVehicle=false;camera.Tick(true,false);
+            Check(!GTA.Native.Function.Cinematic && camera.Status.Contains("enter a vehicle"),"Native vehicle cinema waits on foot");
+            camera.Reset();GTA.Game.Player.Character.InVehicle=true;
             Console.WriteLine(passed+" camera checks passed."); return 0;
         }
         catch(Exception error) { Console.Error.WriteLine("After "+passed+" checks: "+error.Message); return 1; }
+    }
+}
+
+// Native camera adapter: tests the real controller, without running GTA.
+namespace GTA
+{
+    public static class Game {public static bool IsPaused;public static int GameTime=10000;public static Player Player=new Player();}
+    public sealed class Player {public bool CanControlCharacter=true;public Ped Character=new Ped();}
+    public sealed class Ped {public bool IsDead;public bool InVehicle=true;public bool IsInVehicle(){return InVehicle;}}
+}
+namespace GTA.Native
+{
+    public enum Hash {GET_FOLLOW_PED_CAM_VIEW_MODE,GET_FOLLOW_VEHICLE_CAM_VIEW_MODE,SET_FOLLOW_PED_CAM_VIEW_MODE,SET_FOLLOW_VEHICLE_CAM_VIEW_MODE,NETWORK_IS_SESSION_ACTIVE,IS_CUTSCENE_ACTIVE,IS_PLAYER_SWITCH_IN_PROGRESS,IS_SCREEN_FADED_OUT,IS_SCREEN_FADING_OUT,IS_SCREEN_FADING_IN,IS_GAMEPLAY_CAM_RENDERING,IS_CINEMATIC_CAM_RENDERING,SET_CINEMATIC_MODE_ACTIVE}
+    public static class Function
+    {
+        public static bool Cinematic;public static int PedView=2,VehicleView=3;
+        public static void Reset(){Cinematic=false;PedView=2;VehicleView=3;}
+        public static T Call<T>(Hash hash,params object[] args)
+        {
+            object value=typeof(T)==typeof(int)?(object)0:false;
+            if(hash==Hash.GET_FOLLOW_PED_CAM_VIEW_MODE)value=PedView;
+            else if(hash==Hash.GET_FOLLOW_VEHICLE_CAM_VIEW_MODE)value=VehicleView;
+            else if(hash==Hash.IS_GAMEPLAY_CAM_RENDERING)value=!Cinematic;
+            else if(hash==Hash.IS_CINEMATIC_CAM_RENDERING)value=Cinematic;
+            return (T)value;
+        }
+        public static void Call(Hash hash,params object[] args)
+        {
+            if(hash==Hash.SET_CINEMATIC_MODE_ACTIVE)Cinematic=(bool)args[0];
+            else if(hash==Hash.SET_FOLLOW_PED_CAM_VIEW_MODE)PedView=(int)args[0];
+            else if(hash==Hash.SET_FOLLOW_VEHICLE_CAM_VIEW_MODE)VehicleView=(int)args[0];
+        }
     }
 }
