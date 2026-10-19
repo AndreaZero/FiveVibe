@@ -1,6 +1,6 @@
 # FiveVibe
 
-**Set the vibe. Let it ride.**
+I wanted GTA V running in the background while I worked, so I built FiveVibe. Just type what you want to do in chat, let the AI take the wheel, and enjoy the ride.
 
 An open-source AI companion for GTA V Enhanced Story Mode. Give your character a little direction, then let Los Santos unfold while you work, browse, or take a break.
 
